@@ -4,6 +4,8 @@ from datetime import date, datetime, timedelta
 from enum import Enum
 from typing import Optional
 import uuid
+import os
+from openai import OpenAI
 
 
 # ---------------------------------------------------------------------------
@@ -523,3 +525,306 @@ class Scheduler:
             target.start_time = new_start
             target.end_time   = new_end
             sched.scheduled_tasks.append(target)
+
+
+# ---------------------------------------------------------------------------
+# OpenAI Integration for Schedule Generation
+# ---------------------------------------------------------------------------
+
+def generate_schedule_with_context(user_input: str, context: str) -> str:
+    """
+    Generate a daily pet schedule using OpenAI API with provided context.
+    
+    Args:
+        user_input: User request (e.g., "create a schedule for a dog")
+        context: Pet care guidelines or context information
+    
+    Returns:
+        A structured string containing the generated schedule and explanation
+        that incorporates the provided context
+    """
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "OPENAI_API_KEY environment variable not set. "
+            "Please set it before calling this function."
+        )
+    
+    client = OpenAI(api_key=api_key)
+    
+    prompt = f"""
+You are a professional pet care assistant. Based on the user request and the provided context, 
+generate a structured daily pet schedule with a clear explanation.
+
+USER REQUEST:
+{user_input}
+
+PET CARE CONTEXT:
+{context}
+
+Please provide your response in this exact format:
+
+SCHEDULE:
+[Generate a detailed hourly schedule for the pet(s), starting from morning]
+
+EXPLANATION:
+[Provide a concise explanation of 2-3 sentences on how the schedule aligns with the provided context]
+"""
+    
+    message = client.chat.completions.create(
+        model="gpt-4o-mini",
+        max_tokens=1024,
+        messages=[
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+    )
+    
+    response_text = message.choices[0].message.content
+    
+    # Format the response in a structured manner
+    separator = "=" * 70
+    structured_response = f"""
+{separator}
+PET SCHEDULE GENERATION RESULT
+{separator}
+
+{response_text}
+
+{separator}
+"""
+    
+    return structured_response
+
+
+# ---------------------------------------------------------------------------
+# Schedule Validation and Improvement
+# ---------------------------------------------------------------------------
+
+def validate_schedule(schedule_text: str) -> dict:
+    """
+    Validate an AI-generated pet schedule for missing essential tasks and realism.
+    
+    Args:
+        schedule_text: The generated schedule text to validate
+    
+    Returns:
+        Dictionary with:
+        - "status": "valid" or "invalid"
+        - "issues": list of identified problems
+        - "summary": brief description of validation result
+    """
+    issues = []
+    
+    # Normalize text for searching
+    schedule_lower = schedule_text.lower()
+    
+    # Check for essential tasks
+    essential_tasks = {
+        "feeding": ["feed", "meal", "food", "eat", "breakfast", "lunch", "dinner", "snack"],
+        "exercise": ["walk", "exercise", "run", "play", "fetch", "activity", "play time"],
+        "rest": ["sleep", "rest", "nap", "break", "downtime", "quiet time", "relax"],
+    }
+    
+    missing_tasks = []
+    for task_name, keywords in essential_tasks.items():
+        found = any(keyword in schedule_lower for keyword in keywords)
+        if not found:
+            missing_tasks.append(task_name)
+    
+    if missing_tasks:
+        issues.append(
+            f"Missing essential tasks: {', '.join(missing_tasks).title()}. "
+            f"A complete pet schedule should include feeding, exercise, and rest periods."
+        )
+    
+    # Check for timing information
+    time_patterns = [
+        "am", "pm", ":00", ":30", "morning", "afternoon", "evening", "night",
+        "7:", "8:", "9:", "10:", "11:", "12:", "13:", "14:", "15:", "16:", "17:", "18:", "19:", "20:", "21:"
+    ]
+    has_timing = any(pattern in schedule_lower for pattern in time_patterns)
+    
+    if not has_timing:
+        issues.append(
+            "Missing timing information. Schedule should include specific times or time slots "
+            "(e.g., '8:00 AM - Morning walk', 'afternoon playtime')."
+        )
+    
+    # Check for task count (too packed or too sparse)
+    task_keywords = ["walk", "feed", "play", "rest", "exercise", "groom", "sleep", "meal"]
+    task_count = sum(schedule_lower.count(keyword) for keyword in task_keywords)
+    
+    if task_count == 0:
+        issues.append(
+            "No recognizable tasks found. Schedule should describe specific pet care activities."
+        )
+    elif task_count > 15:
+        issues.append(
+            "Schedule appears overly packed. A realistic daily schedule typically has 5-10 main activities. "
+            "Consider consolidating similar tasks or spreading them across multiple days."
+        )
+    
+    # Check for reasonable duration mentions
+    duration_keywords = ["minute", "hour", "min", "hr", "30", "60", "45"]
+    has_durations = any(keyword in schedule_lower for keyword in duration_keywords)
+    
+    if not has_durations and task_count > 5:
+        issues.append(
+            "Missing duration information for tasks. When multiple tasks are scheduled, "
+            "include estimated time for each (e.g., '20-minute walk', '1-hour play session')."
+        )
+    
+    # Check for rest/sleep time
+    sleep_keywords = ["sleep", "rest", "nap", "downtime"]
+    has_rest = any(keyword in schedule_lower for keyword in sleep_keywords)
+    
+    if not has_rest:
+        issues.append(
+            "No explicit rest or sleep time scheduled. Pets need adequate sleep/rest periods "
+            "(dogs: 12-14 hours daily, cats: 12-16 hours daily)."
+        )
+    
+    # Determine status
+    status = "invalid" if issues else "valid"
+    summary = (
+        f"Schedule is valid! All essential elements present."
+        if status == "valid"
+        else f"Schedule needs improvement. Found {len(issues)} issue(s) to address."
+    )
+    
+    return {
+        "status": status,
+        "issues": issues,
+        "summary": summary,
+        "task_count": task_count
+    }
+
+
+def review_and_fix_schedule(schedule_text: str, issues: list, pet_type: str = "pet", context: str = "") -> str:
+    """
+    Use an LLM to review and improve a schedule based on identified issues.
+    
+    Args:
+        schedule_text: The original generated schedule
+        issues: List of validation issues to fix
+        pet_type: Type of pet (e.g., "dog", "cat")
+        context: Additional context about the pet (age, breed, special needs)
+    
+    Returns:
+        Improved schedule text
+    """
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "OPENAI_API_KEY environment variable not set. "
+            "Please set it before calling this function."
+        )
+    
+    client = OpenAI(api_key=api_key)
+    
+    issues_text = "\n".join([f"- {issue}" for issue in issues])
+    
+    prompt = f"""You are an expert pet care scheduler. Review and improve the following pet schedule.
+
+ORIGINAL SCHEDULE:
+{schedule_text}
+
+ISSUES TO FIX:
+{issues_text}
+
+PET TYPE: {pet_type}
+PET CONTEXT: {context if context else "No additional context provided"}
+
+Please provide an IMPROVED schedule that:
+1. Addresses all the identified issues above
+2. Includes specific times (e.g., 8:00 AM, 12:30 PM)
+3. Includes duration for each activity
+4. Maintains proper balance between feeding, exercise, and rest
+5. Is realistic and achievable for a {pet_type}
+6. Includes brief explanations for why activities are scheduled at those times
+
+Format your response as:
+
+IMPROVED SCHEDULE:
+[Provide the improved daily schedule with times and durations]
+
+KEY IMPROVEMENTS:
+- [List 3-5 specific improvements made]
+
+RATIONALE:
+[Explain why this schedule is better for a {pet_type}]
+"""
+    
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        max_tokens=1500,
+        messages=[
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+    )
+    
+    improved_schedule = response.choices[0].message.content
+    
+    # Format with header
+    separator = "=" * 70
+    formatted_response = f"""
+{separator}
+IMPROVED PET SCHEDULE (Based on Validation Feedback)
+{separator}
+
+{improved_schedule}
+
+{separator}
+"""
+    
+    return formatted_response
+
+
+def validate_and_fix_schedule(
+    schedule_text: str,
+    pet_type: str = "pet",
+    context: str = ""
+) -> dict:
+    """
+    Complete validation and fixing pipeline.
+    
+    Args:
+        schedule_text: Generated schedule to validate and potentially improve
+        pet_type: Type of pet
+        context: Pet context information
+    
+    Returns:
+        Dictionary with:
+        - "original_schedule": the original text
+        - "validation_result": validation details
+        - "improved_schedule": fixed schedule (if needed)
+        - "is_valid": boolean indicating if original was valid
+    """
+    # Validate
+    validation = validate_schedule(schedule_text)
+    
+    result = {
+        "original_schedule": schedule_text,
+        "validation_result": validation,
+        "is_valid": validation["status"] == "valid",
+        "improved_schedule": None
+    }
+    
+    # Fix if needed
+    if validation["status"] == "invalid":
+        improved = review_and_fix_schedule(
+            schedule_text,
+            validation["issues"],
+            pet_type,
+            context
+        )
+        result["improved_schedule"] = improved
+    
+    return result
+
