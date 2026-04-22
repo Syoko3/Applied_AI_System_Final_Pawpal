@@ -96,19 +96,14 @@ class RAGSystem:
 - Configuration guide
 - Example workflows
 
-### **`RAG_QUICK_REFERENCE.md`** - Quick Start
-- 5-minute setup guide
-- Common patterns
-- Troubleshooting
-- Optimization tips
-- File overview
-
-### **`RAG_IMPLEMENTATION_SUMMARY.md`** - Technical Overview
-- Architecture overview
-- Feature breakdown
-- Use cases
-- Performance characteristics
-- Next steps for extension
+This document now also includes:
+- quick start setup
+- common usage patterns
+- troubleshooting
+- optimization tips
+- architecture and implementation summary
+- file overview
+- extension ideas
 
 ---
 
@@ -169,8 +164,6 @@ Week_8/Applied_AI_System_Final_Pawpal/
 ├── example_rag_usage.py               # ✅ Usage examples
 ├── example_pawpal_rag_integration.py  # ✅ Pet care advisor
 ├── RAG.md                             # ✅ Complete docs
-├── RAG_QUICK_REFERENCE.md             # ✅ Quick start guide
-├── RAG_IMPLEMENTATION_SUMMARY.md      # ✅ Technical overview
 ├── pawpal_system.py                   # ✅ Updated with new functions
 ├── requirements.txt                   # ✅ Updated dependencies
 └── README files                       # Various documentation
@@ -192,19 +185,18 @@ faiss-cpu>=1.7.0       # Optional for large-scale search (>1000 chunks)
 
 ## 🎓 Learning Path
 
-1. **Start Here**: `python rag_playground.py`
+1. **Start Here**: `python main.py playground`
    - Understand RAG without needing a PDF
    - See chunking and embeddings in action
 
-2. **Learn API**: Read `RAG_QUICK_REFERENCE.md`
-   - Quick reference for all functions
-   - Common patterns
-   - Configuration tips
-
-3. **Deep Dive**: Read `RAG.md`
+2. **Learn API**: Read `RAG.md`
+   - Quick reference, patterns, and configuration tips
    - Complete API documentation
-   - Performance comparisons
-   - Advanced usage
+   - Performance comparisons and advanced usage
+
+3. **Deep Dive**: Use the examples and `main.py` demos
+   - Complete API documentation
+   - Playground and PawPal-specific examples
 
 4. **Integrate**: Use `RAGSystem` class
    - Load your own PDFs
@@ -307,7 +299,7 @@ All functions include:
 - Parameter validation
 - Example usage
 
-For quick help: `python rag_playground.py`
+For quick help: `python main.py playground`
 
 ---
 
@@ -320,7 +312,7 @@ For quick help: `python rag_playground.py`
 - [x] Optional FAISS search for large datasets
 - [x] RAGSystem class for easy integration
 - [x] 4 comprehensive example files
-- [x] 3 documentation files
+- [x] Consolidated documentation in `RAG.md`
 - [x] Updated requirements.txt
 - [x] Type hints and docstrings
 - [x] Error handling and validation
