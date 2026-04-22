@@ -2,10 +2,19 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from enum import Enum
+from pathlib import Path
 from typing import Optional
 import uuid
 import os
 from openai import OpenAI
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
+if load_dotenv is not None:
+    load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=False)
 
 
 # ---------------------------------------------------------------------------

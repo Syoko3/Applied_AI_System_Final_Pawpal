@@ -15,9 +15,18 @@ from rag_system import (
     cosine_similarity,
 )
 from openai import OpenAI
+from pathlib import Path
 import uuid
 import sys
 import os
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
+if load_dotenv is not None:
+    load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=False)
 
 
 if hasattr(sys.stdout, "reconfigure"):

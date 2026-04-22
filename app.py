@@ -1,14 +1,19 @@
 import os
 import tempfile
-
+from pathlib import Path
 import streamlit as st
-
 from pawpal_system import generate_schedule_with_context, validate_schedule
 from rag_system import extract_text_from_pdf, chunk_text_by_sentences, generate_embeddings, search_similar_chunks
 
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
+if load_dotenv is not None:
+    load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=False)
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="wide")
-
 
 def ensure_session_state() -> None:
     defaults = {
@@ -189,4 +194,3 @@ if st.session_state.schedule_text:
 
     with st.expander("Raw Model Output"):
         st.text(st.session_state.schedule_text)
-
