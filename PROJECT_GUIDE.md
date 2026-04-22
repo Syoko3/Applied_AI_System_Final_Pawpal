@@ -9,7 +9,7 @@ It has been cleaned up so it only references files, commands, and app behavior t
 
 PawPal is an AI pet assistant that:
 
-- generates pet schedules with OpenAI
+- generates pet schedules with Gemini
 - validates schedules for completeness and realism
 - uses RAG to retrieve context from uploaded pet-care PDFs
 - provides a Streamlit interface for the full upload → retrieve → generate → validate flow
@@ -43,7 +43,7 @@ pip install -r requirements.txt
 Set your API key in PowerShell:
 
 ```powershell
-$env:OPENAI_API_KEY = "your-api-key-here"
+$env:GEMINI_API_KEY = "your-api-key-here"
 ```
 
 The app and CLI also load `.env` from the project folder when `python-dotenv` is installed.
@@ -55,8 +55,8 @@ Current dependencies in `requirements.txt`:
 ```txt
 streamlit==1.32.2
 pytest>=7.0
-numpy<2.0
-openai>=1.0.0
+numpy==1.26.4
+google-genai>=1.30.0
 pypdf>=4.0.0
 faiss-cpu>=1.7.0
 python-dotenv>=1.0.0
@@ -64,7 +64,7 @@ python-dotenv>=1.0.0
 
 Notes:
 
-- `openai` is required for schedule generation and embeddings
+- `google-genai` is required for schedule generation and embeddings
 - `pypdf` is required for PDF text extraction
 - `faiss-cpu` is optional at runtime unless you use FAISS retrieval
 
@@ -117,7 +117,7 @@ Generate embeddings
     ↓
 Retrieve relevant context
     ↓
-Generate schedule with OpenAI
+Generate schedule with Gemini
     ↓
 Validate generated schedule
     ↓
@@ -166,7 +166,7 @@ Returns a dictionary like:
 
 ### `review_and_fix_schedule(schedule_text, issues, pet_type, context) -> str`
 
-Uses the OpenAI API to rewrite an invalid schedule so it is more complete and specific.
+Uses the Gemini API to rewrite an invalid schedule so it is more complete and specific.
 
 Typical improvements include:
 
@@ -228,7 +228,7 @@ RAG is implemented in `rag_system.py`.
 
 - extract text from PDFs
 - split text into chunks
-- generate embeddings with OpenAI
+- generate embeddings with Gemini
 - retrieve similar chunks with cosine similarity
 - optionally retrieve with FAISS
 - expose a simple end-to-end `RAGSystem` class
@@ -239,7 +239,7 @@ RAG is implemented in `rag_system.py`.
 extract_text_from_pdf(pdf_path: str) -> str
 chunk_text(text, chunk_size=512, overlap=50) -> list[str]
 chunk_text_by_sentences(text, target_chunk_size=512) -> list[str]
-generate_embeddings(texts, model="text-embedding-3-small") -> list[list[float]]
+generate_embeddings(texts, model="gemini-embedding-001") -> list[list[float]]
 search_similar_chunks(query, chunks, embeddings, top_k=5)
 search_with_faiss(query, chunks, embeddings, top_k=5)
 cosine_similarity(vec1, vec2) -> float
@@ -311,7 +311,7 @@ results = search_similar_chunks("How often should I walk my dog?", chunks, embed
 
 ## Known Limitations
 
-- schedule generation and embedding creation require `OPENAI_API_KEY`
+- schedule generation and embedding creation require `GEMINI_API_KEY`
 - validation relies mostly on heuristic checks and keyword matching
 - PDF extraction quality depends on whether the PDF contains readable text
 - the current Streamlit app validates schedules but does not auto-fix them in the UI

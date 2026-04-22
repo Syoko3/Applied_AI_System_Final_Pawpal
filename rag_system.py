@@ -5,9 +5,10 @@ Simple, modular implementation for PDF extraction, text chunking, embeddings, an
 
 import os
 import math
+import time
 from pathlib import Path
 from typing import List, Tuple
-from openai import OpenAI
+from google import genai
 
 try:
     from dotenv import load_dotenv
@@ -129,45 +130,58 @@ def chunk_text_by_sentences(
 
 
 # ---------------------------------------------------------------------------
-# Embeddings Generation
+# Gemini Embeddings Generation
 # ---------------------------------------------------------------------------
 
-def generate_embeddings(texts: List[str], model: str = "text-embedding-3-small") -> List[List[float]]:
+def generate_embeddings(
+    texts: List[str],
+    model: str = "gemini-embedding-001",
+) -> List[List[float]]:
     """
-    Generate embeddings for a list of texts using OpenAI API.
+    Generate embeddings for a list of texts using the Gemini API.
     
     Args:
         texts: List of text strings to embed
-        model: OpenAI embedding model name
+        model: Gemini embedding model name
     
     Returns:
         List of embedding vectors (each is a list of floats)
     
     Raises:
-        ValueError: If OPENAI_API_KEY is not set
+        ValueError: If GEMINI_API_KEY is not set
     """
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise ValueError(
-            "OPENAI_API_KEY environment variable not set. "
+            "GEMINI_API_KEY environment variable not set. "
             "Please set it before calling this function."
         )
-    
-    client = OpenAI(api_key=api_key)
-    
+
+    client = genai.Client(api_key=api_key)
+
     # Filter out empty texts
     texts = [t.strip() for t in texts if t.strip()]
     if not texts:
         return []
-    
-    response = client.embeddings.create(
-        model=model,
-        input=texts
+
+    last_error: Exception | None = None
+    for attempt in range(1, 4):
+        try:
+            response = client.models.embed_content(
+                model=model,
+                contents=texts,
+            )
+            return [embedding.values for embedding in response.embeddings]
+        except Exception as error:
+            last_error = error
+            if attempt < 3:
+                time.sleep(1.5 * attempt)
+                continue
+
+    raise RuntimeError(
+        "Gemini embeddings request failed after retries. "
+        f"Last error: {last_error}"
     )
-    
-    # Extract embeddings from response, maintaining order
-    embeddings = [item.embedding for item in response.data]
-    return embeddings
 
 
 # ---------------------------------------------------------------------------

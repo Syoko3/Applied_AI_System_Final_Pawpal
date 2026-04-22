@@ -6,7 +6,8 @@ from pathlib import Path
 from typing import Optional
 import uuid
 import os
-from openai import OpenAI
+import time
+from google import genai
 
 try:
     from dotenv import load_dotenv
@@ -537,12 +538,59 @@ class Scheduler:
 
 
 # ---------------------------------------------------------------------------
-# OpenAI Integration for Schedule Generation
+# Gemini Integration for Schedule Generation
 # ---------------------------------------------------------------------------
+
+_GEMINI_MODELS = (
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+)
+
+
+def _get_gemini_client() -> genai.Client:
+    """Create a Gemini client using GEMINI_API_KEY from the environment."""
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "GEMINI_API_KEY environment variable not set. "
+            "Please set it before calling this function."
+        )
+
+    return genai.Client(api_key=api_key)
+
+
+def _generate_with_retry(prompt: str, max_attempts: int = 3) -> str:
+    """Generate content with retry and model fallback for temporary Gemini outages."""
+    client = _get_gemini_client()
+    last_error: Exception | None = None
+
+    for model_name in _GEMINI_MODELS:
+        for attempt in range(1, max_attempts + 1):
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                )
+                if response.text:
+                    return response.text
+                raise RuntimeError(
+                    f"Gemini returned an empty response using model '{model_name}'."
+                )
+            except Exception as error:
+                last_error = error
+                if attempt < max_attempts:
+                    time.sleep(1.5 * attempt)
+                    continue
+                break
+
+    raise RuntimeError(
+        "Gemini request failed after retries and model fallback. "
+        f"Last error: {last_error}"
+    )
 
 def generate_schedule_with_context(user_input: str, context: str) -> str:
     """
-    Generate a daily pet schedule using OpenAI API with provided context.
+    Generate a daily pet schedule using Gemini API with provided context.
     
     Args:
         user_input: User request (e.g., "create a schedule for a dog")
@@ -552,15 +600,6 @@ def generate_schedule_with_context(user_input: str, context: str) -> str:
         A structured string containing the generated schedule and explanation
         that incorporates the provided context
     """
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise ValueError(
-            "OPENAI_API_KEY environment variable not set. "
-            "Please set it before calling this function."
-        )
-    
-    client = OpenAI(api_key=api_key)
-    
     prompt = f"""
 You are a professional pet care assistant. Based on the user request and the provided context, 
 generate a structured daily pet schedule with a clear explanation.
@@ -579,19 +618,8 @@ SCHEDULE:
 EXPLANATION:
 [Provide a concise explanation of 2-3 sentences on how the schedule aligns with the provided context]
 """
-    
-    message = client.chat.completions.create(
-        model="gpt-4o-mini",
-        max_tokens=1024,
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
-    )
-    
-    response_text = message.choices[0].message.content
+
+    response_text = _generate_with_retry(prompt)
     
     # Format the response in a structured manner
     separator = "=" * 70
@@ -725,15 +753,6 @@ def review_and_fix_schedule(schedule_text: str, issues: list, pet_type: str = "p
     Returns:
         Improved schedule text
     """
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise ValueError(
-            "OPENAI_API_KEY environment variable not set. "
-            "Please set it before calling this function."
-        )
-    
-    client = OpenAI(api_key=api_key)
-    
     issues_text = "\n".join([f"- {issue}" for issue in issues])
     
     prompt = f"""You are an expert pet care scheduler. Review and improve the following pet schedule.
@@ -766,19 +785,8 @@ KEY IMPROVEMENTS:
 RATIONALE:
 [Explain why this schedule is better for a {pet_type}]
 """
-    
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        max_tokens=1500,
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
-    )
-    
-    improved_schedule = response.choices[0].message.content
+
+    improved_schedule = _generate_with_retry(prompt)
     
     # Format with header
     separator = "=" * 70

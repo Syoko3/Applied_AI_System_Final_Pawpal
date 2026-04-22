@@ -1,7 +1,10 @@
+# Recommended Python version: 3.12
+# Python 3.13 on Windows may install an experimental NumPy build.
+
 streamlit==1.32.2
 pytest>=7.0
-numpy<2.0
-openai>=1.0.0
+numpy==1.26.4
+google-genai>=1.30.0
 pypdf>=4.0.0
 faiss-cpu>=1.7.0
 python-dotenv>=1.0.0

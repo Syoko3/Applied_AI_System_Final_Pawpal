@@ -14,7 +14,7 @@ from rag_system import (
     search_similar_chunks,
     cosine_similarity,
 )
-from openai import OpenAI
+from google import genai
 from pathlib import Path
 import uuid
 import sys
@@ -435,7 +435,7 @@ def demo_similarity_search(knowledge_base: str, title: str) -> None:
     chunks = chunk_text_by_sentences(knowledge_base, target_chunk_size=300)
     print(f"\n📄 Created {len(chunks)} chunks")
 
-    print("🔗 Generating embeddings... (this uses OpenAI API)")
+    print("🔗 Generating embeddings... (this uses the Gemini API)")
     try:
         embeddings = generate_embeddings(chunks)
         print(f"✓ Generated embeddings for {len(embeddings)} chunks")
@@ -552,7 +552,7 @@ def run_rag_playground() -> None:
         print("\nNext Steps:")
         print("- Load your own PDFs with RAGSystem.load_pdf()")
         print("- Experiment with different chunk sizes")
-        print("- Integrate with OpenAI for answer generation")
+        print("- Integrate with Gemini for answer generation")
         print("=" * 70 + "\n")
     except KeyboardInterrupt:
         print("\n⚠️  Demo interrupted by user")
@@ -668,12 +668,12 @@ def get_pet_care_recommendation(query: str, chunks: list, embeddings: list) -> s
     # Format context from retrieved chunks
     context = "\n".join([chunk for chunk, _ in results])
     
-    # Use OpenAI to generate response based on context
-    api_key = os.getenv("OPENAI_API_KEY")
+    # Use Gemini to generate response based on context
+    api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        return "Error: OPENAI_API_KEY not set"
-    
-    client = OpenAI(api_key=api_key)
+        return "Error: GEMINI_API_KEY not set"
+
+    client = genai.Client(api_key=api_key)
     
     prompt = f"""You are a helpful pet care advisor. Using the following knowledge base context, 
 answer the user's question about pet care. Be specific and provide practical advice.
@@ -686,18 +686,12 @@ USER QUESTION:
 
 Please provide a helpful, specific answer based on the context provided."""
     
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        max_tokens=500
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt,
     )
-    
-    return response.choices[0].message.content
+
+    return response.text or ""
 
 
 def run_schedule_generation_examples():

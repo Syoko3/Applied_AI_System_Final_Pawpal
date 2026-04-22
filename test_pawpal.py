@@ -199,13 +199,13 @@ def test_detect_time_conflicts_flags_duplicate_times():
     assert "Breakfast [Buddy]" in warnings[0]
     assert "Medicine [Buddy]" in warnings[0]
 
-class _FakeChatCompletions:
-    def create(self, **kwargs):
-        message = type(
-            "Message",
+class _FakeGeminiModels:
+    def generate_content(self, **kwargs):
+        return type(
+            "Response",
             (),
             {
-                "content": (
+                "text": (
                     "SCHEDULE:\n"
                     "7:00 AM - Feed the dog\n"
                     "8:00 AM - Morning walk\n\n"
@@ -213,17 +213,15 @@ class _FakeChatCompletions:
                     "This schedule uses the retrieved context and provides a clear routine."
                 )
             },
-        )
-        choice = type("Choice", (), {"message": message()})
-        return type("Response", (), {"choices": [choice()]})()
+        )()
 
 
-class _FakeOpenAI:
+class _FakeGeminiClient:
     def __init__(self, api_key=None):
-        self.chat = type("Chat", (), {"completions": _FakeChatCompletions()})()
+        self.models = _FakeGeminiModels()
 
 
-def _fake_generate_embeddings(texts, model="text-embedding-3-small"):
+def _fake_generate_embeddings(texts, model="gemini-embedding-001"):
     embeddings = []
     for text in texts:
         lowered = text.lower()
@@ -238,8 +236,8 @@ def _fake_generate_embeddings(texts, model="text-embedding-3-small"):
 
 
 def test_schedule_generation_returns_output():
-    with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
-        with patch("pawpal_system.OpenAI", _FakeOpenAI):
+    with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+        with patch("pawpal_system.genai.Client", _FakeGeminiClient):
             result = generate_schedule_with_context(
                 "Create a daily dog schedule",
                 "The dog needs feeding, exercise, and rest.",

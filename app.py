@@ -59,6 +59,26 @@ def retrieve_context(user_request: str, chunks: list[str], embeddings: list[list
     return "\n\n".join(context_parts)
 
 
+def format_pipeline_error(error: Exception) -> str:
+    """Convert raw API errors into friendlier Streamlit messages."""
+    error_text = str(error)
+    upper_text = error_text.upper()
+
+    if "503" in error_text or "UNAVAILABLE" in upper_text or "HIGH DEMAND" in upper_text:
+        return (
+            "Gemini is temporarily overloaded right now. Please try again in a minute. "
+            "The app also retries automatically and falls back to a lighter model."
+        )
+
+    if "GEMINI_API_KEY" in error_text:
+        return "GEMINI_API_KEY is missing or not loaded. Add it to `.env` and restart Streamlit."
+
+    if "API KEY" in upper_text or "API_KEY" in upper_text or "UNAUTHENTICATED" in upper_text:
+        return "The Gemini API key appears invalid. Double-check `GEMINI_API_KEY` in `.env`."
+
+    return f"Pipeline failed: {error}"
+
+
 def split_schedule_response(response_text: str) -> tuple[str, str]:
     schedule_marker = "SCHEDULE:"
     explanation_marker = "EXPLANATION:"
@@ -86,8 +106,8 @@ ensure_session_state()
 st.title("🐾 PawPal+")
 st.caption("Upload a pet care PDF, ask for a schedule, and run the full RAG + generation + validation pipeline.")
 
-if not os.getenv("OPENAI_API_KEY"):
-    st.warning("`OPENAI_API_KEY` is not set. PDF embeddings and schedule generation will fail until it is configured.")
+if not os.getenv("GEMINI_API_KEY"):
+    st.warning("`GEMINI_API_KEY` is not set. PDF embeddings and schedule generation will fail until it is configured.")
 
 st.subheader("1. Upload Pet Care PDF")
 uploaded_pdf = st.file_uploader("Upload a PDF with pet care information", type=["pdf"])
@@ -105,7 +125,7 @@ if uploaded_pdf is not None:
                 st.session_state.pdf_text = ""
                 st.session_state.chunks = []
                 st.session_state.embeddings = []
-                st.error(f"PDF processing failed: {error}")
+                st.error(format_pipeline_error(error))
             else:
                 st.session_state.pdf_name = uploaded_pdf.name
                 st.session_state.pdf_text = pdf_text
@@ -158,7 +178,7 @@ if run_pipeline:
             st.session_state.explanation_only = explanation_only
             st.session_state.validation_result = validation_result
         except Exception as error:
-            st.error(f"Pipeline failed: {error}")
+            st.error(format_pipeline_error(error))
 
 if st.session_state.schedule_text:
     st.divider()
