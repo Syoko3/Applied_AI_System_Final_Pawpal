@@ -1,10 +1,8 @@
 ### Pawpal+
 
-PawPal is an AI pet assistant that uses uploaded pet care documents (RAG) to generate personalized schedules with the Gemini API and validates them for safety.
-
 ### Title and Summary
 
-
+PawPal is an AI pet assistant that uses uploaded pet care pdf documents for RAG-based retrieval and uses the Gemini API to generate personalized schedules. It schedules for completeness and realism. It provides a Streamlit interface for the full upload → retrieve → generate → validate flow.
 
 ### Architecture Overview
 
@@ -13,7 +11,7 @@ PawPal is an AI pet assistant that uses uploaded pet care documents (RAG) to gen
 ### Setup Instructions
 
 Running the app:
-Python 3.12 is recommended for this project. Python 3.13 on Windows may install an experimental NumPy build that produces warnings or instability.
+Note: Python 3.12 is recommended for this project. Python 3.13 on Windows may install an experimental NumPy build that produces warnings or instability.
 
 If you are using Windows:
 ```bash
@@ -33,25 +31,24 @@ python -m streamlit run app.py
 
 Running the demo (main.py):
 ```bash
-python main.py
-python main.py validate
-python main.py rag
-python main.py pawpal_rag
-python main.py playground
-python main.py schedule
+python main.py             # Runs the base scheduler/task demo
+python main.py validate    # Runs schedule generation, validation, and optional fixing demo
+python main.py rag         # Runs RAG examples using in-memory sample text
+python main.py pawpal_rag  # Runs the PawPal pet-care advisor example
+python main.py playground  # Runs the merged RAG playground demos
+python main.py schedule    # Runs schedule-generation examples
 ```
 
 Testing the app:
 ```bash
-python -m pytest
+python -m pytest  # macOS/Linux only
+py -m pytest      # Windows only
 ```
 
 Environment variable:
-
 ```powershell
 $env:GEMINI_API_KEY = "your-api-key-here"
 ```
-
 You can also store the key in a local `.env` file for development.
 
 ### Sample Interactions
@@ -64,6 +61,7 @@ You can also store the key in a local `.env` file for development.
 
 ### Testing Summary
 
+From test_pawpal.py:
 
 
 ### Reflection

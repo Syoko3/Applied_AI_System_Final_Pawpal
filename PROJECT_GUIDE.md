@@ -1,57 +1,16 @@
 # PawPal Project Guide
 
-## Overview
-
-This is the consolidated project guide for the current PawPal codebase.
-It has been cleaned up so it only references files, commands, and app behavior that exist in the current project.
-
-## What This Project Does
-
-PawPal is an AI pet assistant that:
-
-- generates pet schedules with Gemini
-- validates schedules for completeness and realism
-- uses RAG to retrieve context from uploaded pet-care PDFs
-- provides a Streamlit interface for the full upload → retrieve → generate → validate flow
-
-## Current Project Files
-
 ### Source code
 
 - `app.py`: Streamlit app for PDF upload, retrieval, schedule generation, and validation display
 - `main.py`: CLI demos for scheduler, validation, RAG, and schedule generation
 - `pawpal_system.py`: pet/task models, scheduling logic, LLM schedule generation, and validation helpers
 - `rag_system.py`: PDF extraction, chunking, embeddings, similarity search, and `RAGSystem`
-
-### Tests
-
 - `test_pawpal.py`: pytest-based tests for scheduler behavior, filtering, conflict detection, validation helpers, and mocked AI output
-
-### Documentation
-
-- `PROJECT_GUIDE.md`: this consolidated guide
-- `README.md`: short project summary stub
-
-## Setup
-
-```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-Set your API key in PowerShell:
-
-```powershell
-$env:GEMINI_API_KEY = "your-api-key-here"
-```
-
-The app and CLI also load `.env` from the project folder when `python-dotenv` is installed.
 
 ## Requirements
 
 Current dependencies in `requirements.txt`:
-
 ```txt
 streamlit==1.32.2
 pytest>=7.0
@@ -63,44 +22,9 @@ python-dotenv>=1.0.0
 ```
 
 Notes:
-
 - `google-genai` is required for schedule generation and embeddings
 - `pypdf` is required for PDF text extraction
 - `faiss-cpu` is optional at runtime unless you use FAISS retrieval
-
-## How To Run
-
-### Streamlit app
-
-```bash
-streamlit run app.py
-```
-
-### CLI demos
-
-```bash
-python main.py
-python main.py validate
-python main.py rag
-python main.py pawpal_rag
-python main.py playground
-python main.py schedule
-```
-
-What each command does:
-
-- `python main.py`: runs the base scheduler/task demo
-- `python main.py validate`: runs schedule generation, validation, and optional fixing demo
-- `python main.py rag`: runs RAG examples using in-memory sample text
-- `python main.py pawpal_rag`: runs the PawPal pet-care advisor example
-- `python main.py playground`: runs the merged RAG playground demos
-- `python main.py schedule`: runs schedule-generation examples
-
-### Tests
-
-```bash
-python -m pytest
-```
 
 ## Streamlit App Flow
 

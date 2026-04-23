@@ -17,7 +17,6 @@ except ImportError:
 if load_dotenv is not None:
     load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=False)
 
-
 # ---------------------------------------------------------------------------
 # Enum
 # ---------------------------------------------------------------------------
@@ -27,7 +26,6 @@ class Priority(Enum):
     MEDIUM = 2
     HIGH = 3
     CRITICAL = 4
-
 
 # ---------------------------------------------------------------------------
 # Time-slot helpers
