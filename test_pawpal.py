@@ -61,7 +61,7 @@ def test_add_task_increases_pet_task_count(sample_pet, sample_task):
 # Tests that filtering tasks correctly isolates completed or incomplete tasks.
 def test_filter_tasks_by_completion_status():
     """Scheduler.filter_tasks() should return only tasks matching completion state."""
-    owner = Owner("O1", "Jordan", "jordan@example.com", "08:00 - 18:00")
+    owner = Owner("O1", "Jordan", "08:00 - 18:00")
     pet = Pet("P1", "Buddy", "Canine", "Labrador", 5)
     owner.add_pet(pet)
 
@@ -81,7 +81,7 @@ def test_filter_tasks_by_completion_status():
 # Tests that the scheduler correctly retrieves tasks belonging only to a specific pet.
 def test_filter_tasks_by_pet_name():
     """Scheduler.filter_tasks() should return only tasks for the named pet."""
-    owner = Owner("O1", "Jordan", "jordan@example.com", "08:00 - 18:00")
+    owner = Owner("O1", "Jordan", "08:00 - 18:00")
     dog = Pet("P1", "Buddy", "Canine", "Labrador", 5)
     cat = Pet("P2", "Mochi", "Feline", "Siamese", 3)
     owner.add_pet(dog)
@@ -101,7 +101,7 @@ def test_filter_tasks_by_pet_name():
 # Tests that the scheduler correctly orders tasks based on their assigned time slots.
 def test_sort_by_time_returns_tasks_in_chronological_order():
     """Scheduler.sort_by_time() should order tasks from earliest to latest HH:MM."""
-    owner = Owner("O1", "Jordan", "jordan@example.com", "08:00 - 18:00")
+    owner = Owner("O1", "Jordan", "08:00 - 18:00")
     pet = Pet("P1", "Buddy", "Canine", "Labrador", 5)
     owner.add_pet(pet)
 
@@ -117,7 +117,7 @@ def test_sort_by_time_returns_tasks_in_chronological_order():
 # Tests that scheduling concurrent tasks for different pets properly triggers a conflict warning.
 def test_detect_time_conflicts_returns_warning():
     """Scheduler.detect_time_conflicts() should warn when tasks share the same time."""
-    owner = Owner("O1", "Jordan", "jordan@example.com", "08:00 - 18:00")
+    owner = Owner("O1", "Jordan", "08:00 - 18:00")
     dog = Pet("P1", "Buddy", "Canine", "Labrador", 5)
     cat = Pet("P2", "Mochi", "Feline", "Siamese", 3)
     owner.add_pet(dog)
@@ -139,7 +139,7 @@ def test_detect_time_conflicts_returns_warning():
 # Tests that multiple overlapping tasks for the exact same pet accurately trigger conflict warnings.
 def test_detect_time_conflicts_flags_duplicate_times():
     """Scheduler.detect_time_conflicts() should flag multiple incomplete tasks at the same time."""
-    owner = Owner("O1", "Jordan", "jordan@example.com", "08:00 - 18:00")
+    owner = Owner("O1", "Jordan", "08:00 - 18:00")
     pet = Pet("P1", "Buddy", "Canine", "Labrador", 5)
     owner.add_pet(pet)
 
@@ -293,7 +293,7 @@ def test_rag_with_added_tasks():
     ]
     embeddings = _fake_generate_embeddings(chunks)
 
-    owner = Owner("O1", "Jordan", "jordan@example.com", "08:00 - 18:00")
+    owner = Owner("O1", "Jordan", "08:00 - 18:00")
     pet = Pet("P1", "Max", "Dog", "Labrador", 3)
     owner.add_pet(pet)
     
@@ -327,14 +327,14 @@ def test_rag_with_added_tasks():
 # Tests that standard textual time boundaries correctly map into numerical minutes budgets.
 def test_scheduler_parses_time_range():
     """Scheduler should properly parse string 'HH:MM - HH:MM' into total_time_available minutes."""
-    owner = Owner("O1", "Jordan", "jordan@example.com", "08:00 - 10:00")
+    owner = Owner("O1", "Jordan", "08:00 - 10:00")
     scheduler = Scheduler("S1", owner)
     assert scheduler.total_time_available == 120
 
 # Tests that low-priority tasks are dropped when total task durations exceed the allotted time budget.
 def test_scheduler_apply_constraints_drops_excess_tasks():
     """Scheduler should omit low-priority tasks if they exceed the time budget."""
-    owner = Owner("O1", "Jordan", "jordan@example.com", "08:00 - 10:00") # 120 mins
+    owner = Owner("O1", "Jordan", "08:00 - 10:00") # 120 mins
     pet = Pet("P1", "Max", "Dog", "Lab", 3)
     owner.add_pet(pet)
     

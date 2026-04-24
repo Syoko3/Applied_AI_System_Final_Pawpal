@@ -3,7 +3,8 @@ from pawpal_system import (
     generate_schedule_with_context,
     validate_schedule,
     review_and_fix_schedule,
-    validate_and_fix_schedule
+    validate_and_fix_schedule,
+    GEMINI_MODELS
 )
 from rag_system import (
     chunk_text,
@@ -151,7 +152,7 @@ def print_task_list(title, task_pairs):
 
 # Runs a basic integration test demonstrating owner setup, pets, and scheduling functionality.
 def run_test():
-    owner = Owner(str(uuid.uuid4()), "Sohdai", "sohdai@gmail.com", "08:00 - 10:00")
+    owner = Owner(str(uuid.uuid4()), "Sohdai", "08:00 - 10:00")
 
     dog = Pet(str(uuid.uuid4()), "Dog", "Canine", "Labrador", 5)
     cat = Pet(str(uuid.uuid4()), "Cat", "Feline", "Siamese", 3)
@@ -654,12 +655,20 @@ USER QUESTION:
 
 Please provide a helpful, specific answer based on the context provided."""
     
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt,
-    )
+    last_error = None
+    for model_name in GEMINI_MODELS:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+            )
+            if response.text:
+                return response.text
+        except Exception as e:
+            last_error = e
+            continue
 
-    return response.text or ""
+    return f"Error: Gemini request failed after trying all models. Last error: {last_error}"
 
 # Shows a full pipeline simulation combining the RAG knowledge base with custom user tasks.
 def run_rag_with_tasks_demo():
@@ -672,7 +681,7 @@ def run_rag_with_tasks_demo():
     chunks, embeddings, kb_text = create_pet_care_knowledge_base()
     
     # 1. Setup Owner and Pet
-    owner = Owner(str(uuid.uuid4()), "Jordan", "jordan@example.com", "08:00 - 18:00")
+    owner = Owner(str(uuid.uuid4()), "Jordan", "08:00 - 18:00")
     pet = Pet(str(uuid.uuid4()), "Max", "Dog", "Labrador", 3)
     owner.add_pet(pet)
     
@@ -721,7 +730,7 @@ def run_time_constraints_demo():
     print("=" * 70)
     
     # 2 hours total time available
-    owner = Owner(str(uuid.uuid4()), "Jordan", "jordan@example.com", "08:00 - 10:00")
+    owner = Owner(str(uuid.uuid4()), "Jordan", "08:00 - 10:00")
     pet = Pet(str(uuid.uuid4()), "Max", "Dog", "Labrador", 3)
     owner.add_pet(pet)
     

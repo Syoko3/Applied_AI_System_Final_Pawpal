@@ -27,7 +27,6 @@ def ensure_session_state() -> None:
         "explanation_only": "",
         "validation_result": None,
         "owner_name": "",
-        "owner_email": "",
         "owner_time_range": "",
         "pet_name": "",
         "species": "",
@@ -158,16 +157,12 @@ st.markdown('''
 
 st.subheader("1. Owner and Pet Info")
 st.caption("Enter your information and your pet's information.")
-st.markdown("**Owner Details**")
-owner_c1, owner_c2, owner_c3 = st.columns(3)
+owner_c1, owner_c2 = st.columns(2)
 with owner_c1:
     st.session_state.owner_name = st.text_input("Owner Name", value=st.session_state.owner_name, placeholder="e.g., Jordan")
 with owner_c2:
-    st.session_state.owner_email = st.text_input("Email", value=st.session_state.owner_email, placeholder="e.g., jordan@example.com")
-with owner_c3:
     st.session_state.owner_time_range = st.text_input("Available Time Range", value=st.session_state.owner_time_range, placeholder="e.g., 08:00 - 10:00")
 
-st.markdown("**Pet Details**")
 pet_c1, pet_c2, pet_c3, pet_c4 = st.columns(4)
 with pet_c1:
     st.session_state.pet_name = st.text_input("Pet Name", value=st.session_state.pet_name, placeholder="e.g., Mochi")
@@ -280,7 +275,6 @@ if run_pipeline:
             current_owner = Owner(
                 owner_id="O-001",
                 name=st.session_state.owner_name,
-                email=st.session_state.owner_email,
                 daily_available_time_range=st.session_state.owner_time_range
             )
             

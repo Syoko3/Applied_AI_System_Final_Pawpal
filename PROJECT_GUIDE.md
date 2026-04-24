@@ -1,16 +1,73 @@
 # PawPal Project Guide
 
-### Source code
+Welcome to the comprehensive guide for **PawPal+**, an AI-powered pet care assistant that leverages Retrieval-Augmented Generation (RAG) and the Gemini API to create, validate, and track personalized pet schedules.
 
-- `app.py`: Streamlit app for PDF upload, retrieval, schedule generation, and validation display
-- `main.py`: CLI demos for scheduler, validation, RAG, and schedule generation
-- `pawpal_system.py`: pet/task models, scheduling logic, LLM schedule generation, and validation helpers
-- `rag_system.py`: PDF extraction, chunking, embeddings, similarity search, and `RAGSystem`
-- `test_pawpal.py`: pytest-based tests for scheduler behavior, filtering, conflict detection, validation helpers, and mocked AI output
+---
 
-## Requirements
+## 🛠️ System Architecture
 
-Current dependencies in `requirements.txt`:
+The project is structured into modular components, each handling a specific layer of the application logic:
+
+- **`app.py`**: The primary user interface built with Streamlit. It manages the end-to-end pipeline from PDF upload and RAG retrieval to schedule generation and interactive task tracking.
+- **`pawpal_system.py`**: The core engine containing data models (`Owner`, `Pet`, `Task`), scheduling algorithms, Gemini API integration, and heuristic validation logic.
+- **`rag_system.py`**: The document intelligence layer. Handles PDF text extraction, sentence-based chunking, embedding generation, and vector similarity search (supporting both Cosine Similarity and FAISS).
+- **`main.py`**: A CLI-based playground for developers to test RAG performance, validation workflows, and system integration without the UI.
+- **`test_pawpal.py`**: A comprehensive test suite using `pytest` to ensure reliability across scheduling logic, conflict detection, and API interactions.
+
+---
+
+## 📋 Data Models
+
+The system uses a hierarchical data model to represent the relationships between owners, pets, and their care requirements.
+
+### `Owner`
+Represents the user of the system.
+- **Attributes**: `owner_id`, `name`, `daily_available_time_range`, `preferences`.
+- **Key Methods**: `add_pet()`, `all_tasks()`, `get_schedule()`.
+- *Note: Email address has been removed to prioritize user privacy.*
+
+### `Pet`
+Represents a pet belonging to an owner.
+- **Attributes**: `pet_id`, `name`, `species`, `breed`, `age`, `medical_notes`.
+- **Key Methods**: `add_task()`, `get_tasks()`, `update_info()`.
+
+### `Task`
+Represents a specific activity (e.g., feeding, walking).
+- **Attributes**: `task_id`, `title`, `description`, `duration`, `priority` (Enum), `preferred_time`, `time`, `due_date`, `is_completed`.
+
+---
+
+## 🚀 App Pipeline
+
+The Streamlit application implements a sophisticated RAG-driven pipeline:
+
+1.  **Ingestion**: User uploads a pet care PDF.
+2.  **Extraction**: `pypdf` extracts raw text from the document.
+3.  **Chunking**: Text is split into meaningful segments using sentence-based chunking.
+4.  **Embedding**: Gemini API generates high-dimensional vectors for each chunk.
+5.  **Retrieval**: Based on the user's request and pet profile, the system retrieves the top $k$ most relevant context chunks.
+6.  **Generation**: Gemini generates a structured daily schedule incorporating both retrieved context and manual user tasks.
+7.  **Validation**: The system runs a heuristic check for completeness (feeding, exercise, rest) and time conflicts.
+8.  **Interaction**: Users can mark tasks as completed directly in the UI.
+
+---
+
+## 🔍 Validation & Intelligence
+
+### Schedule Validation
+The `validate_schedule()` function ensures generated plans are realistic and safe:
+- **Essential Coverage**: Checks for feeding, exercise, and rest.
+- **Temporal Consistency**: Identifies time conflicts and missing duration info.
+- **Constraint Compliance**: Ensures tasks fit within the owner's specified time range.
+
+### Automatic Refinement
+Invalid schedules can be automatically improved using `review_and_fix_schedule()`, which feeds validation issues back into Gemini for a corrected output.
+
+---
+
+## 📦 Requirements & Setup
+
+Dependencies are managed via `requirements.txt`:
 ```txt
 streamlit==1.32.2
 pytest>=7.0
@@ -21,226 +78,20 @@ faiss-cpu>=1.7.0
 python-dotenv>=1.0.0
 ```
 
-Notes:
-- `google-genai` is required for schedule generation and embeddings
-- `pypdf` is required for PDF text extraction
-- `faiss-cpu` is optional at runtime unless you use FAISS retrieval
-
-## Streamlit App Flow
-
-The current `app.py` implements this pipeline:
-
-```text
-Upload PDF
-    ↓
-Extract text
-    ↓
-Chunk text
-    ↓
-Generate embeddings
-    ↓
-Retrieve relevant context
-    ↓
-Generate schedule with Gemini
-    ↓
-Validate generated schedule
-    ↓
-Display schedule, explanation, issues, and retrieved context
+### Environment Variables
+A `.env` file is required in the root directory:
+```bash
+GEMINI_API_KEY=your_api_key_here
 ```
 
-What the current app supports:
+---
 
-- PDF upload
-- text extraction preview
-- embedding generation
-- context retrieval from uploaded PDF content
-- schedule generation from retrieved context
-- validation result display
-- issue list display when validation fails
+## ⚠️ Known Limitations
+- **API Dependency**: Requires an active Gemini API key for embeddings and generation.
+- **Statelessness**: Vector storage is in-memory; embeddings are regenerated per session.
+- **Heuristics**: Validation is keyword-based and may occasionally flag valid creative schedules as missing essential items.
 
-What the current app does not yet implement:
+---
 
-- a Streamlit button to auto-run `review_and_fix_schedule()`
-- a Streamlit before/after comparison UI for improved schedules
-
-## Validation System
-
-Validation is implemented in `pawpal_system.py`.
-
-### `validate_schedule(schedule_text: str) -> dict`
-
-Checks a generated schedule for:
-
-- essential task coverage such as feeding, exercise, and rest
-- time references
-- activity count
-- duration information
-- rest or sleep coverage
-
-Returns a dictionary like:
-
-```python
-{
-    "status": "valid" or "invalid",
-    "issues": ["Issue 1", "Issue 2"],
-    "summary": "Brief result summary",
-    "task_count": 5,
-}
-```
-
-### `review_and_fix_schedule(schedule_text, issues, pet_type, context) -> str`
-
-Uses the Gemini API to rewrite an invalid schedule so it is more complete and specific.
-
-Typical improvements include:
-
-- adding missing time details
-- adding durations
-- covering missing core activities
-- improving clarity and reasoning
-
-### `validate_and_fix_schedule(schedule_text, pet_type, context) -> dict`
-
-Runs the full validation pipeline:
-
-1. validate the original schedule
-2. return the original if it is already valid
-3. call `review_and_fix_schedule()` only when needed
-
-Typical return shape:
-
-```python
-{
-    "original_schedule": "...",
-    "validation_result": {...},
-    "is_valid": True,
-    "improved_schedule": None,
-}
-```
-
-### Validation workflow
-
-```text
-Generate schedule
-    ↓
-Validate
-    ├─ Valid → keep original schedule
-    └─ Invalid → review and fix
-                     ↓
-               return improved schedule
-```
-
-### Validation example
-
-```python
-from pawpal_system import validate_and_fix_schedule
-
-result = validate_and_fix_schedule(
-    schedule_text,
-    pet_type="dog",
-    context="3-year-old Labrador with high energy",
-)
-
-final_schedule = result["improved_schedule"] or result["original_schedule"]
-```
-
-## RAG System
-
-RAG is implemented in `rag_system.py`.
-
-### Main capabilities
-
-- extract text from PDFs
-- split text into chunks
-- generate embeddings with Gemini
-- retrieve similar chunks with cosine similarity
-- optionally retrieve with FAISS
-- expose a simple end-to-end `RAGSystem` class
-
-### Core functions
-
-```python
-extract_text_from_pdf(pdf_path: str) -> str
-chunk_text(text, chunk_size=512, overlap=50) -> list[str]
-chunk_text_by_sentences(text, target_chunk_size=512) -> list[str]
-generate_embeddings(texts, model="gemini-embedding-001") -> list[list[float]]
-search_similar_chunks(query, chunks, embeddings, top_k=5)
-search_with_faiss(query, chunks, embeddings, top_k=5)
-cosine_similarity(vec1, vec2) -> float
-```
-
-### `RAGSystem` class
-
-`RAGSystem` wraps the basic workflow:
-
-1. load a PDF
-2. chunk the text
-3. generate embeddings
-4. query for relevant chunks
-5. format retrieved context
-
-Example:
-
-```python
-from rag_system import RAGSystem
-
-rag = RAGSystem(use_faiss=False)
-rag.load_pdf("pet_care_guide.pdf")
-context = rag.get_context("What feeding guidance is most relevant?", top_k=3)
-print(context)
-```
-
-### Retrieval guidance
-
-- sentence-based chunking is usually better for natural prose
-- cosine similarity is fine for small to medium chunk sets
-- FAISS is more useful when scaling to larger collections
-
-## Key Application Functions
-
-### Schedule generation
-
-```python
-from pawpal_system import generate_schedule_with_context
-
-schedule = generate_schedule_with_context(
-    "Create a daily schedule for my 3-year-old Labrador.",
-    "Feed twice daily, include exercise, training, and rest."
-)
-```
-
-### Manual RAG pipeline
-
-```python
-from rag_system import (
-    extract_text_from_pdf,
-    chunk_text_by_sentences,
-    generate_embeddings,
-    search_similar_chunks,
-)
-
-text = extract_text_from_pdf("guide.pdf")
-chunks = chunk_text_by_sentences(text, target_chunk_size=500)
-embeddings = generate_embeddings(chunks)
-results = search_similar_chunks("How often should I walk my dog?", chunks, embeddings, top_k=3)
-```
-
-## Verification Checklist
-
-- `pawpal_system.py` contains schedule generation and validation helpers
-- `rag_system.py` contains extraction, chunking, embedding, and retrieval helpers
-- `app.py` supports PDF upload and shows validation results for generated schedules
-- `main.py playground` runs the merged RAG demos
-- `python -m pytest` runs the existing test suite in `test_pawpal.py`
-
-## Known Limitations
-
-- schedule generation and embedding creation require `GEMINI_API_KEY`
-- validation relies mostly on heuristic checks and keyword matching
-- PDF extraction quality depends on whether the PDF contains readable text
-- the current Streamlit app validates schedules but does not auto-fix them in the UI
-- there is no persistent vector database; retrieval is in memory
-
-## Summary
-
-Use this file as the single source of truth for the current PawPal project. It reflects the repo as it exists now: a pet scheduling assistant with validation, RAG-based PDF retrieval, CLI demos, a Streamlit app, and one active test module.
+## 📝 Summary
+PawPal+ transforms static pet care documents into dynamic, actionable daily plans. By combining the reasoning of LLMs with the grounding of RAG, it provides a reliable and personalized care assistant for every pet owner.

@@ -206,14 +206,12 @@ class Owner:
         self,
         owner_id: str,
         name: str,
-        email: str,
         daily_available_time_range: str,
         preferences: Optional[list[str]] = None,
     ) -> None:
         """Initialize an Owner with contact info, time budget, and an empty pet list."""
         self.owner_id = owner_id
         self.name = name
-        self.email = email
         self.daily_available_time_range = daily_available_time_range
         self.preferences: list[str] = preferences or []
         self.pets: list[Pet] = []
@@ -499,9 +497,12 @@ class Scheduler:
 # Gemini Integration for Schedule Generation
 # ---------------------------------------------------------------------------
 
-_GEMINI_MODELS = (
+GEMINI_MODELS = (
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-8b",
 )
 
 def _get_gemini_client() -> genai.Client:
@@ -520,7 +521,7 @@ def _generate_with_retry(prompt: str, max_attempts: int = 3) -> str:
     client = _get_gemini_client()
     last_error: Exception | None = None
 
-    for model_name in _GEMINI_MODELS:
+    for model_name in GEMINI_MODELS:
         for attempt in range(1, max_attempts + 1):
             try:
                 response = client.models.generate_content(

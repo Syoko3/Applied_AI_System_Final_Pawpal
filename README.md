@@ -6,7 +6,10 @@ PawPal is an AI pet assistant that uses uploaded pet care pdf documents for RAG-
 
 ### Architecture Overview
 
+UML Diagram:
+![alt text](assets/UML_Pawpal+_RAG.png)
 
+- 
 
 ### Setup Instructions
 
