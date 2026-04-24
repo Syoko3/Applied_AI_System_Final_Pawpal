@@ -1,7 +1,12 @@
+# Virtual Environment and caches
 __pycache__/
 .venv/
 .venv_new/
 .pytest_cache/
 .DS_Store
+
+# Stores Gemini API Key in .env file
 .env
+
+# Stores uploaded pdfs in data folder
 data/

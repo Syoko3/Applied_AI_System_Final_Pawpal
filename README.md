@@ -1,6 +1,7 @@
 # Pawpal+
 
 PawPal+ is an AI-powered pet care scheduling system that combines a deterministic scheduling engine with a Retrieval-Augmented Generation (RAG) pipeline to automatically build, validate, and refine daily care plans for one or more pets. It allows owners to define their pets, assign tasks with priorities and time preferences, and have Gemini LLM generate a grounded, natural-language schedule backed by knowledge retrieved from uploaded pet care PDFs. The system also includes a self-correction loop that validates generated schedules against essential care rules — feeding, exercise, and rest — and automatically rewrites them if issues are found, while exposing a Streamlit web interface and a CLI entry point for flexible usage.
+Demo Video Recording: https://drive.google.com/file/d/1VIdXEOeQ9NVmd2mYNYdmmyvvqHCdpyyW/view?usp=sharing
 
 ---
 
@@ -73,17 +74,17 @@ You can also store the key in a local `.env` file for development.
 
 ### Sample Interactions
 
-Example 1: Single Pet, Basic Schedule Request, With Validation Fix
+Example 1: Single Pet, Basic Schedule Request, With Validation Fix (Streamlit App)
 ![alt_text](assets/SinglePet_BasicRequest.png)
 ![alt_text](assets/Example1_Output1.png)
 ![alt_text](assets/Example1_Output2.png)
 
-Example 2: Multi-Pet Schedule, No Validation Fix
+Example 2: Multi-Pet Schedule, No Validation Fix (Streamlit App)
 ![alt_text](assets/MultiPet_Schedule.png)
 ![alt_text](assets/Example2_Output1.png)
 ![alt_text](assets/Example2_Output2.png)
 
-Example 3: Time Budget Enforcement
+Example 3: Time Budget Enforcement (CLI (python main.py constraints))
 ![alt_text](assets/Example3_Output.png)
 
 ---
@@ -108,16 +109,16 @@ The tests are implemented in test_pawpal.py, and it includes a total of 22 tests
 
 What are the limitations or biases in your system?
 
-- 
+- The limitations or biases in my system are the essential tasks and dropping the tasks that cannot parse. In pawpal_system.py, validate_schedule() checks for "essential" pet care by scanning the raw text for words like "feed", "walk", "rest", and "exercise", which mentions those words in a rationale note, even if the actual task was dropped, can pass validation. For the regex parser, if the LLM writes "30 minutes" instead of "30 min", or formats a time as "8:00 AM" (12-hour format) instead of "08:00" (24-hour format), or omits a priority label, that task is simply not added to the tracking panel. The owner sees fewer tasks than were generated, with no error message explaining what happened.
 
 Could your AI be misused, and how would you prevent that?
 
-- 
+- My AI could be misused by aligning the format of the generated schedule incorrectly and showing only the tasks that users added in the task tracking section, which means no AI generated tasks are shown in that section. I prevented that by modifying the generate_schedule_with_context() and review_and_fix_schedule() functions in pawpal_system.py to make sure that the AI follows the format that I expected to see and shows both AI generated and user added tasks in the task tracking section.
 
 What surprised you while testing your AI's reliability?
 
-- 
+- While testing my AI's reliability, I was surprised that the parser was the most fragile part. The parser_ai_tasks() function in pawpal_system.py broke most often by varying its formatting slightly when showing the generated schedule. I also surprised that I was expected the fix loop to be a safety net that caught everything, but it actually can only fix problems the validator correctly identifies.
 
 Describe your collaboration with AI during this project. Identify one instance when the AI gave a helpful suggestion and one instance where its suggestion was flawed or incorrect.
 
-- 
+- AI was involved throughout the entire development process — not just for writing code, but for thinking through architecture, debugging unexpected behavior, and refining how the system communicated with the LLM. I used it for designing the class structure, implementing the RAG system with additional functions in pawpal_system.py, such as generate_schedule_with_context() and review_and_fix_schedule(), debugging the regex parser in parse_ai_tasks(), and iterating on the validation rules in validate_schedule(). The AI gave a helpful suggestion on adding critical instructions to AI when it generates and fixes the schedule, such as formatting rules and task tracking awareness. The LLM would vary its format between runs, sometimes writing "30 min", sometimes "30 minutes", sometimes skipping the priority label entirely. The AI's suggestion was flawed or incorrect by creating a new file that did not integrate properly with the existing codebase. The suggested file assumed a different project structure than what was already built, used import paths that didn't match the actual directory layout, and would have introduced duplicate class definitions that conflicted with the ones already in use.
