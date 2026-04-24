@@ -570,7 +570,7 @@ CRITICAL INSTRUCTIONS:
 2. TIME CONSTRAINTS: You must ONLY schedule tasks within the Owner's available time range specified in the user request. Do not schedule any activities outside of these hours.
 3. SPECIFIC TASKS: You must include ALL manually requested tasks at their exact requested times, durations, and priorities. Assign each manual task to the correct pet.
 4. PRIORITY & DURATION: You MUST explicitly include the duration and priority for EVERY task.
-5. PER-TASK RATIONALE: For EACH task in the schedule, you MUST provide a brief rationale (1 sentence) immediately following the task line.
+5. PER-TASK RATIONALE: For EVERY single task in the schedule (including those manually requested by the user), you MUST provide a brief rationale (1 sentence) immediately following the task line.
 6. 24-HOUR FORMAT: All times MUST be in 24-hour format (HH:MM). Do NOT use AM/PM.
 7. TRACKING AWARENESS: This schedule is used for an interactive task tracking system. You MUST include every single task—both your suggestions and the owner's manual requests—in the schedule blocks so they can be tracked.
 
@@ -584,9 +584,11 @@ Please provide your response in this exact format:
 
 SCHEDULE:
 ### [Pet Name]'s Schedule
+For each task, you MUST follow this EXACT multi-line format:
 HH:MM - Task Title (Duration: X min, Priority: PriorityName)
-* Rationale: Brief reason why this task is scheduled here based on context
-(Repeat for every task)
+* Rationale: Brief reason why this task is scheduled here based on context (MANDATORY for all tasks)
+
+CRITICAL: Every single task MUST start on a brand new line. Do NOT place a task line immediately after a rationale bullet point on the same line. Ensure there is a clear separation between the rationale of one task and the start of the next task.
 
 EXPLANATION:
 Provide a concise overview of the overall plan and how it meets the pet's needs.
@@ -772,12 +774,15 @@ PET CONTEXT: {context if context else "No additional context provided"}
 Please provide a complete, IMPROVED response in this exact format:
 
 SCHEDULE:
-[For each pet, provide their individual hourly schedule. 
-Format: 
+[For each pet, provide their individual hourly schedule.]
+
+Format for EACH pet block:
 ### [Pet Name]'s Schedule
+For each task, you MUST follow this EXACT multi-line format:
 HH:MM - Task Title (Duration: X min, Priority: PriorityName)
-* Rationale: Brief reason why this task is scheduled here based on context
-(Repeat for every task, including the owner's manual requests)
+* Rationale: Brief reason why this task is scheduled here based on context (MANDATORY for all tasks, including user-added ones)
+
+CRITICAL: Every single task MUST start on a brand new line. Do NOT place a task line immediately after a rationale bullet point on the same line. Ensure there is a clear separation between the rationale of one task and the start of the next task.
 
 EXPLANATION:
 Provide a concise overview of the improvements made and how they address the initial issues.
