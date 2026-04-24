@@ -43,7 +43,6 @@ def _slot_start(preferred_time: str, base_date: date) -> datetime:
     hour = _TIME_SLOT_START.get(preferred_time.lower(), 8)
     return datetime(base_date.year, base_date.month, base_date.day, hour, 0)
 
-
 # ---------------------------------------------------------------------------
 # Dataclasses
 # ---------------------------------------------------------------------------
@@ -63,7 +62,6 @@ class ScheduledTask:
             return 0
         delta = self.end_time - now
         return int(delta.total_seconds() // 60)
-
 
 @dataclass
 class Schedule:
@@ -143,7 +141,6 @@ class Schedule:
 
         return "\n".join(lines)
 
-
 @dataclass
 class Task:
     task_id: str
@@ -208,7 +205,6 @@ class Task:
             raise AttributeError(f"Task has no attribute '{field}'.")
         setattr(self, field, value)
 
-
 @dataclass
 class Pet:
     pet_id: str
@@ -239,7 +235,6 @@ class Pet:
         """Return a shallow copy of this pet's task list."""
         return list(self.tasks)
 
-
 # ---------------------------------------------------------------------------
 # Regular classes
 # ---------------------------------------------------------------------------
@@ -250,18 +245,14 @@ class Owner:
         owner_id: str,
         name: str,
         email: str,
-        phone: str,
-        preferred_schedule_time: str,
-        daily_time_available: int,
+        daily_available_time_range: str,
         preferences: Optional[list[str]] = None,
     ) -> None:
         """Initialize an Owner with contact info, time budget, and an empty pet list."""
         self.owner_id = owner_id
         self.name = name
         self.email = email
-        self.phone = phone
-        self.preferred_schedule_time = preferred_schedule_time
-        self.daily_time_available = daily_time_available
+        self.daily_available_time_range = daily_available_time_range
         self.preferences: list[str] = preferences or []
         self.pets: list[Pet] = []
         self.scheduler: Optional[Scheduler] = None
@@ -289,7 +280,6 @@ class Owner:
         """Return every (pet, task) pair across all pets owned by this owner."""
         return [(pet, task) for pet in self.pets for task in pet.tasks]
 
-
 @dataclass
 class ScheduleAdjustment:
     """Describes a single targeted change to apply to a generated schedule."""
@@ -299,14 +289,28 @@ class ScheduleAdjustment:
     new_priority: Optional[Priority] = None
     remove: bool = False
 
-
 class Scheduler:
     def __init__(self, scheduler_id: str, owner: Owner) -> None:
         """Initialise the Scheduler, link it to the owner, and reset the task queue."""
         self.scheduler_id = scheduler_id
         self.owner = owner
         self.task_queue: list[tuple[Pet, Task]] = []
-        self.total_time_available: int = owner.daily_time_available
+        self.total_time_range: str = owner.daily_available_time_range
+        
+        minutes = 1440
+        try:
+            if "-" in owner.daily_available_time_range:
+                start_str, end_str = [t.strip() for t in owner.daily_available_time_range.split("-")]
+                start_t = datetime.strptime(start_str, "%H:%M")
+                end_t = datetime.strptime(end_str, "%H:%M")
+                diff = end_t - start_t
+                if diff.total_seconds() < 0:
+                    diff += timedelta(days=1)
+                minutes = int(diff.total_seconds() // 60)
+        except Exception:
+            pass
+            
+        self.total_time_available: int = minutes
         self.generated_schedule: Optional[Schedule] = None
         owner.scheduler = self
 
@@ -395,15 +399,11 @@ class Scheduler:
         return sorted(self.task_queue, key=sort_key)
 
     def apply_constraints(self) -> list[tuple[Pet, Task]]:
-        """Filter tasks to fit the time budget, favouring the owner's preferred slot first."""
+        """Filter tasks to fit the time budget."""
         prioritized = self.prioritize_tasks()
-        owner_pref  = self.owner.preferred_schedule_time.lower()
-
-        preferred = [(p, t) for p, t in prioritized if t.preferred_time.lower() == owner_pref]
-        others    = [(p, t) for p, t in prioritized if t.preferred_time.lower() != owner_pref]
 
         ordered, total = [], 0
-        for pair in preferred + others:
+        for pair in prioritized:
             _, task = pair
             if total + task.duration <= self.total_time_available:
                 ordered.append(pair)
@@ -437,7 +437,7 @@ class Scheduler:
             end   = start + timedelta(minutes=task.duration)
             note  = (
                 f"Priority={task.priority.name}; "
-                f"fits within {self.total_time_available}-min window"
+                f"fits within time range {self.total_time_range}"
             )
             entry = ScheduledTask(task=task, pet=pet, start_time=start, end_time=end, rationale_note=note)
             schedule.add_entry(entry)
@@ -471,8 +471,7 @@ class Scheduler:
             f"{BOLD}  🧠 Scheduling Reasoning{RESET}",
             f"{BOLD}{'═' * WIDTH}{RESET}",
             f"  Owner            : {self.owner.name}",
-            f"  Time budget      : {self.total_time_available} min",
-            f"  Preferred slot   : {self.owner.preferred_schedule_time.capitalize()}",
+            f"  Time budget      : {self.total_time_range}",
             f"  Tasks considered : {len(self.task_queue)}",
             f"{'─' * WIDTH}",
             f"{BOLD}  ✅ Scheduled ({len(source)}){RESET}",
@@ -534,7 +533,6 @@ class Scheduler:
             target.end_time   = new_end
             sched.scheduled_tasks.append(target)
 
-
 # ---------------------------------------------------------------------------
 # Gemini Integration for Schedule Generation
 # ---------------------------------------------------------------------------
@@ -543,7 +541,6 @@ _GEMINI_MODELS = (
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
 )
-
 
 def _get_gemini_client() -> genai.Client:
     """Create a Gemini client using GEMINI_API_KEY from the environment."""
@@ -555,7 +552,6 @@ def _get_gemini_client() -> genai.Client:
         )
 
     return genai.Client(api_key=api_key)
-
 
 def _generate_with_retry(prompt: str, max_attempts: int = 3) -> str:
     """Generate content with retry and model fallback for temporary Gemini outages."""
@@ -602,6 +598,11 @@ def generate_schedule_with_context(user_input: str, context: str) -> str:
 You are a professional pet care assistant. Based on the user request and the provided context, 
 generate a structured daily pet schedule with a clear explanation.
 
+CRITICAL INSTRUCTIONS:
+1. TIME CONSTRAINTS: You must ONLY schedule tasks within the Owner's available time range specified in the user request. Do not schedule any activities outside of these hours.
+2. SPECIFIC TASKS: You must include ALL manually requested tasks at their exact requested times, durations, and priorities. Build the rest of the schedule around these fixed tasks.
+3. PRIORITY & FREQUENCY: For any flexible tasks, sort and place them strictly based on their priority (CRITICAL/HIGH before LOW). Additionally, you MUST explicitly mark the frequency of EVERY task in the output (e.g., "[Daily]", "[Weekly]", "[Once]").
+
 USER REQUEST:
 {user_input}
 
@@ -611,10 +612,10 @@ PET CARE CONTEXT:
 Please provide your response in this exact format:
 
 SCHEDULE:
-[Generate a detailed hourly schedule for the pet(s), starting from morning]
+[Generate a detailed hourly schedule for the pet(s) that strictly adheres to the available time range and includes all specific tasks]
 
 EXPLANATION:
-[Provide a concise explanation of 2-3 sentences on how the schedule aligns with the provided context]
+[Provide a concise explanation of 2-3 sentences on how the schedule aligns with the provided context and honors the time constraints]
 """
 
     response_text = _generate_with_retry(prompt)
@@ -632,7 +633,6 @@ PET SCHEDULE GENERATION RESULT
 """
     
     return structured_response
-
 
 # ---------------------------------------------------------------------------
 # Schedule Validation and Improvement
@@ -737,7 +737,6 @@ def validate_schedule(schedule_text: str) -> dict:
         "task_count": task_count
     }
 
-
 def review_and_fix_schedule(schedule_text: str, issues: list, pet_type: str = "pet", context: str = "") -> str:
     """
     Use an LLM to review and improve a schedule based on identified issues.
@@ -800,7 +799,6 @@ IMPROVED PET SCHEDULE (Based on Validation Feedback)
     
     return formatted_response
 
-
 def validate_and_fix_schedule(
     schedule_text: str,
     pet_type: str = "pet",
@@ -842,4 +840,3 @@ def validate_and_fix_schedule(
         result["improved_schedule"] = improved
     
     return result
-

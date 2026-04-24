@@ -18,10 +18,30 @@ except ImportError:
 if load_dotenv is not None:
     load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=False)
 
-
 # ---------------------------------------------------------------------------
 # PDF Extraction
 # ---------------------------------------------------------------------------
+
+def save_uploaded_pdf(file_name: str, file_buffer: bytes) -> str:
+    """
+    Saves a PDF buffer to the data/ directory permanently.
+    
+    Args:
+        file_name: The name of the file to save (e.g., 'my_pet_guide.pdf')
+        file_buffer: The raw bytes of the file
+        
+    Returns:
+        The absolute path to the saved file
+    """
+    data_dir = os.path.join(os.path.dirname(__file__), "data")
+    os.makedirs(data_dir, exist_ok=True)
+    
+    save_path = os.path.join(data_dir, file_name)
+    with open(save_path, "wb") as f:
+        f.write(file_buffer)
+        
+    return save_path
+
 
 def extract_text_from_pdf(pdf_path: str) -> str:
     """

@@ -33,8 +33,10 @@ Running the demo (main.py):
 ```bash
 python main.py             # Runs the base scheduler/task demo
 python main.py validate    # Runs schedule generation, validation, and optional fixing demo
-python main.py rag         # Runs RAG examples using in-memory sample text
-python main.py pawpal_rag  # Runs the PawPal pet-care advisor example
+python main.py rag_basic   # Runs the basic RAG pet-care advisor example demo
+python main.py rag_tasks   # Runs the demo for the RAG pet-care advisor example incorporating user-added tasks and time range
+python main.py constraints # Run demo showing how time budgets drop low-priority tasks
+python main.py upload      # Runs the PDF upload demo
 python main.py playground  # Runs the merged RAG playground demos
 python main.py schedule    # Runs schedule-generation examples
 ```

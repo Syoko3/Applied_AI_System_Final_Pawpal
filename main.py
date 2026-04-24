@@ -13,6 +13,7 @@ from rag_system import (
     generate_embeddings,
     search_similar_chunks,
     cosine_similarity,
+    save_uploaded_pdf,
 )
 from google import genai
 from pathlib import Path
@@ -155,8 +156,9 @@ def print_task_list(title, task_pairs):
         )
 
 
+# Runs a basic integration test demonstrating owner setup, pets, and scheduling functionality.
 def run_test():
-    owner = Owner(str(uuid.uuid4()), "Sohdai", "sohdai@gmail.com", "123-456-7890", "morning", 120)
+    owner = Owner(str(uuid.uuid4()), "Sohdai", "sohdai@gmail.com", "08:00 - 10:00")
 
     dog = Pet(str(uuid.uuid4()), "Dog", "Canine", "Labrador", 5)
     cat = Pet(str(uuid.uuid4()), "Cat", "Feline", "Siamese", 3)
@@ -213,6 +215,7 @@ def run_test():
     print(scheduler.explain_reasoning())
 
 
+# Demonstrates the schedule generation workflow alongside validation and automatic fixing.
 def run_validation_demo():
     """Demonstrate the schedule generation → validation → fix workflow."""
     print("\n" + "=" * 70)
@@ -324,108 +327,7 @@ def run_validation_demo():
     print("✅ VALIDATION DEMO COMPLETE")
     print("=" * 70)
 
-
-def run_rag_examples():
-    """Run RAG system usage examples."""
-    print("🔍 RAG System Examples")
-    print("=" * 70)
-    
-    # Example 1: Basic RAG workflow with cosine similarity
-    print("\n" + "=" * 70)
-    print("EXAMPLE 1: Basic RAG Usage (Cosine Similarity)")
-    print("=" * 70)
-    
-    # Sample text for demonstration
-    sample_text = """
-    Artificial Intelligence (AI) is transforming healthcare by enabling faster diagnosis 
-    and personalized treatment plans. Machine learning models can analyze medical images 
-    and identify patterns invisible to human eyes.
-    
-    Deep learning networks have revolutionized natural language processing, allowing 
-    computers to understand and generate human language with remarkable accuracy.
-    
-    Computer vision applications are now used in autonomous vehicles to detect objects, 
-    read traffic signs, and navigate safely on roads.
-    
-    Reinforcement learning has enabled breakthrough achievements in game-playing AI, 
-    surpassing human champions in complex strategic games.
-    """
-    
-    # Create chunks manually for this example
-    chunks = chunk_text_by_sentences(sample_text, target_chunk_size=300)
-    print(f"\n📄 Created {len(chunks)} chunks from sample text")
-    
-    # Generate embeddings
-    print("\n🔗 Generating embeddings...")
-    embeddings = generate_embeddings(chunks)
-    
-    # Perform searches
-    queries = [
-        "medical diagnosis and AI",
-        "autonomous vehicles",
-        "games and learning",
-    ]
-    
-    for query in queries:
-        print(f"\n🔍 Query: '{query}'")
-        results = search_similar_chunks(query, chunks, embeddings, top_k=2)
-        for i, (chunk, score) in enumerate(results, 1):
-            print(f"   [{i}] Similarity: {score:.4f}")
-            print(f"       {chunk[:100]}...")
-    
-    # Example 3: Comparing cosine similarity calculations
-    print("\n" + "=" * 70)
-    print("EXAMPLE 3: Cosine Similarity Demonstration")
-    print("=" * 70)
-    
-    # Simple embedding examples (low-dimensional for clarity)
-    embedding_1 = [1.0, 0.0, 0.0]
-    embedding_2 = [1.0, 0.0, 0.0]  # Same as 1
-    embedding_3 = [0.0, 1.0, 0.0]  # Orthogonal to 1
-    embedding_4 = [-1.0, 0.0, 0.0]  # Opposite to 1
-    
-    print("\nEmbeddings:")
-    print(f"  e1: {embedding_1}")
-    print(f"  e2: {embedding_2} (same as e1)")
-    print(f"  e3: {embedding_3} (orthogonal to e1)")
-    print(f"  e4: {embedding_4} (opposite to e1)")
-    
-    print("\nCosine Similarity Scores:")
-    print(f"  e1 vs e2: {cosine_similarity(embedding_1, embedding_2):.4f} (identical)")
-    print(f"  e1 vs e3: {cosine_similarity(embedding_1, embedding_3):.4f} (no relationship)")
-    print(f"  e1 vs e4: {cosine_similarity(embedding_1, embedding_4):.4f} (opposite)")
-    
-    # Example 4: Comparing different chunking strategies
-    print("\n" + "=" * 70)
-    print("EXAMPLE 4: Chunking Methods Comparison")
-    print("=" * 70)
-    
-    sample_text_2 = """
-    The development of artificial intelligence has been a gradual process. 
-    Early AI research focused on symbolic reasoning and logic systems. 
-    Later breakthroughs came through machine learning approaches. 
-    Deep learning revolutionized the field in the 2010s. 
-    Today, large language models demonstrate remarkable capabilities.
-    """
-    
-    # Method 1: Character-based chunking
-    char_chunks = chunk_text(sample_text_2, chunk_size=100, overlap=20)
-    print(f"\n📄 Character-based chunking (size=100, overlap=20):")
-    print(f"   Created {len(char_chunks)} chunks")
-    for i, chunk in enumerate(char_chunks, 1):
-        print(f"   [{i}] {chunk[:60]}...")
-    
-    # Method 2: Sentence-based chunking
-    sentence_chunks = chunk_text_by_sentences(sample_text_2, target_chunk_size=150)
-    print(f"\n📄 Sentence-based chunking (target=150):")
-    print(f"   Created {len(sentence_chunks)} chunks")
-    for i, chunk in enumerate(sentence_chunks, 1):
-        print(f"   [{i}] {chunk[:60]}...")
-    
-    print("\n📝 Example 2 (PDF loading) requires a PDF file.")
-    print("   Uncomment example_2_rag_system_class() to test with your own PDF.\n")
-
-
+# Demonstrates semantic similarity searches by finding relevant chunks for specific queries.
 def demo_similarity_search(knowledge_base: str, title: str) -> None:
     """Run a demo of similarity search on a knowledge base."""
     print("\n" + "=" * 70)
@@ -462,6 +364,7 @@ def demo_similarity_search(knowledge_base: str, title: str) -> None:
             print(f"   Error: {e}")
 
 
+# Demonstrates the end-to-end RAG system answering questions via PDF integration and Gemini.
 def demo_rag_system() -> None:
     """Demo RAG retrieval using combined in-memory knowledge bases."""
     print("\n" + "=" * 70)
@@ -501,6 +404,7 @@ def demo_rag_system() -> None:
             print(f"Error: {e}")
 
 
+# Compares different RAG text chunking strategies based on generation time and accuracy.
 def benchmark_chunking() -> None:
     """Show the impact of different chunking strategies."""
     print("\n" + "=" * 70)
@@ -521,6 +425,7 @@ def benchmark_chunking() -> None:
         print(f"  - Coverage: {(sum(len(chunk) for chunk in chunks) / len(sample_text)) * 100:.1f}%\n")
 
 
+# Runs the primary RAG playground that loops through all search and comparison demonstrations.
 def run_rag_playground() -> None:
     """Run the RAG playground demonstrations that used to live in rag_playground.py."""
     print("\n" + "🎮 RAG PLAYGROUND - Interactive Demonstrations\n")
@@ -560,6 +465,7 @@ def run_rag_playground() -> None:
         print(f"\n❌ Error: {e}")
 
 
+# Showcases PawPal using the RAG model to generate contextually relevant pet care answers.
 def run_pawpal_rag_example():
     """Run the PawPal RAG integration example."""
     print("\n" + "=" * 70)
@@ -593,6 +499,7 @@ def run_pawpal_rag_example():
         print("\n" + "=" * 70 + "\n")
 
 
+# Assembles a generic pet care knowledge base containing various tips and facts.
 def create_pet_care_knowledge_base() -> tuple:
     """
     Create a sample pet care knowledge base (in memory).
@@ -694,6 +601,111 @@ Please provide a helpful, specific answer based on the context provided."""
     return response.text or ""
 
 
+# Shows a full pipeline simulation combining the RAG knowledge base with custom user tasks.
+def run_rag_with_tasks_demo():
+    """Run a demo of RAG schedule generation with an owner time range and custom tasks."""
+    print("\n" + "=" * 70)
+    print("🐾 PawPal RAG with Custom Tasks Demo")
+    print("=" * 70)
+    
+    print("\n📚 Loading pet care knowledge base...")
+    chunks, embeddings, kb_text = create_pet_care_knowledge_base()
+    
+    # 1. Setup Owner and Pet
+    owner = Owner(str(uuid.uuid4()), "Jordan", "jordan@example.com", "08:00 - 18:00")
+    pet = Pet(str(uuid.uuid4()), "Max", "Dog", "Labrador", 3)
+    owner.add_pet(pet)
+    
+    # 2. Add custom tasks
+    task1 = Task(str(uuid.uuid4())[:8], "Vet Appointment", "Annual checkup", 60, Priority.CRITICAL, "once", "morning", "09:00")
+    task2 = Task(str(uuid.uuid4())[:8], "Training Session", "Agility training", 30, Priority.HIGH, "daily", "afternoon", "15:00")
+    pet.add_task(task1)
+    pet.add_task(task2)
+    
+    # 3. Format the prompt correctly
+    profile_context = f"This is a schedule for {pet.name} (a {pet.age}-year-old {pet.breed} {pet.species}), owned by {owner.name}."
+    profile_context += f"\nOwner is available between {owner.daily_available_time_range}."
+    
+    user_request = "Create a comprehensive daily schedule combining my tasks and standard pet care activities."
+    
+    enhanced_request = f"{profile_context}\n\nRequest: {user_request}"
+    
+    manual_tasks_str = "\n".join([
+        f"- {t.title} at {t.time} (Duration: {t.duration} min, Priority: {t.priority.name}, Frequency: {t.frequency})" 
+        for t in pet.tasks
+    ])
+    enhanced_request += f"\n\nIn addition to the description above, please specifically include these tasks:\n{manual_tasks_str}"
+    
+    print("\n📋 Enhanced Request sent to RAG:")
+    print("-" * 70)
+    print(enhanced_request)
+    print("-" * 70)
+    
+    print("\n🔍 Retrieving relevant context...")
+    results = search_similar_chunks(enhanced_request, chunks, embeddings, top_k=3)
+    retrieved_context = "\n".join([chunk for chunk, _ in results])
+    
+    print("\n🤖 Generating schedule with Gemini...")
+    schedule_text = generate_schedule_with_context(enhanced_request, retrieved_context)
+    
+    print("\n✅ Final Schedule:")
+    print(schedule_text)
+
+
+# Simulates a time-constrained scheduler forcefully dropping lower priority tasks to fit the owner's budget.
+def run_time_constraints_demo():
+    """Demo how the Scheduler prioritizes tasks based on the Owner's time limit."""
+    print("\n" + "=" * 70)
+    print("🐾 PawPal Time Constraints & Priorities Demo")
+    print("=" * 70)
+    
+    # 2 hours total time available
+    owner = Owner(str(uuid.uuid4()), "Jordan", "jordan@example.com", "08:00 - 10:00")
+    pet = Pet(str(uuid.uuid4()), "Max", "Dog", "Labrador", 3)
+    owner.add_pet(pet)
+    
+    print(f"Owner {owner.name} has time range: {owner.daily_available_time_range} (Budget: 120 min)")
+    
+    # Total task duration: 60 + 60 + 30 = 150 minutes (Exceeds budget by 30 mins)
+    t1 = Task(str(uuid.uuid4())[:8], "Morning Run", "Exercise", 60, Priority.HIGH, "daily", "morning", "08:00")
+    t2 = Task(str(uuid.uuid4())[:8], "Vet Visit", "Health", 60, Priority.CRITICAL, "once", "morning", "09:00")
+    t3 = Task(str(uuid.uuid4())[:8], "Grooming", "Care", 30, Priority.LOW, "weekly", "morning", "10:00")
+    
+    pet.add_task(t3)
+    pet.add_task(t1)
+    pet.add_task(t2)
+    
+    scheduler = Scheduler(str(uuid.uuid4()), owner)
+    scheduler.generate_schedule()
+    
+    print(scheduler.explain_reasoning())
+
+
+# Simulates a user uploading a PDF and the system saving it into the permanent data/ folder.
+def run_save_pdf_demo():
+    """Demo saving an uploaded file to the data directory."""
+    print("\n" + "=" * 70)
+    print("🐾 PawPal PDF Upload & Storage Demo")
+    print("=" * 70)
+    
+    test_file_name = "demo_pet_guide.pdf"
+    test_buffer = b"%PDF-1.4\n% Dummy PDF Content for Demo"
+    
+    print(f"📁 Simulating user uploading file: '{test_file_name}'...")
+    saved_path = save_uploaded_pdf(test_file_name, test_buffer)
+    
+    print(f"✅ File successfully stored permanently at:")
+    print(f"   {saved_path}")
+    
+    if os.path.exists(saved_path):
+        print(f"   (Verified file exists on disk, size: {os.path.getsize(saved_path)} bytes)")
+        
+    # Cleanup for demo
+    os.remove(saved_path)
+    print("🧹 Cleaned up demo file.")
+
+
+# Generates direct pet schedules from raw text context guidelines and basic inputs.
 def run_schedule_generation_examples():
     """Run schedule generation examples."""
     # Example 1: Schedule for a dog
@@ -736,19 +748,25 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         if sys.argv[1] == "validate":
             run_validation_demo()
-        elif sys.argv[1] == "rag":
-            run_rag_examples()
-        elif sys.argv[1] == "pawpal_rag":
+        elif sys.argv[1] == "rag_basic":
             run_pawpal_rag_example()
+        elif sys.argv[1] == "rag_tasks":
+            run_rag_with_tasks_demo()
+        elif sys.argv[1] == "constraints":
+            run_time_constraints_demo()
+        elif sys.argv[1] == "upload":
+            run_save_pdf_demo()
         elif sys.argv[1] == "playground":
             run_rag_playground()
         elif sys.argv[1] == "schedule":
             run_schedule_generation_examples()
         else:
-            print("Usage: python main.py [validate|rag|pawpal_rag|playground|schedule]")
+            print("Usage: python main.py [validate|rag_basic|rag_tasks|constraints|upload|playground|schedule]")
             print("  validate    - Run schedule validation demo")
-            print("  rag         - Run RAG system examples")
-            print("  pawpal_rag  - Run PawPal RAG integration example")
+            print("  rag_basic   - Run basic PawPal RAG integration example")
+            print("  rag_tasks   - Run RAG demo incorporating user-added tasks and time range")
+            print("  constraints - Run demo showing how time budgets drop low-priority tasks")
+            print("  upload      - Run demo simulating user PDF upload to data folder")
             print("  playground  - Run the merged RAG playground demos")
             print("  schedule    - Run schedule generation examples")
             print("  (no args)   - Run basic test")
