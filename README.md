@@ -73,7 +73,18 @@ You can also store the key in a local `.env` file for development.
 
 ### Sample Interactions
 
+Example 1: Single Pet, Basic Schedule Request, With Validation Fix
+![alt_text](assets/SinglePet_BasicRequest.png)
+![alt_text](assets/Example1_Output1.png)
+![alt_text](assets/Example1_Output2.png)
 
+Example 2: Multi-Pet Schedule, No Validation Fix
+![alt_text](assets/MultiPet_Schedule.png)
+![alt_text](assets/Example2_Output1.png)
+![alt_text](assets/Example2_Output2.png)
+
+Example 3: Time Budget Enforcement
+![alt_text](assets/Example3_Output.png)
 
 ---
 
