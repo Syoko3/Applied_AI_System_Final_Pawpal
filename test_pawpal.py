@@ -15,7 +15,7 @@ from pawpal_system import (
     generate_schedule_with_context,
     validate_schedule,
 )
-from rag_system import search_similar_chunks
+from rag_system import save_uploaded_pdf, search_similar_chunks
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -59,7 +59,6 @@ def test_add_task_increases_pet_task_count(sample_pet, sample_task):
     sample_pet.add_task(sample_task)
     assert len(sample_pet.tasks) == before + 1
 
-
 # Tests that filtering tasks correctly isolates completed or incomplete tasks.
 def test_filter_tasks_by_completion_status():
     """Scheduler.filter_tasks() should return only tasks matching completion state."""
@@ -79,7 +78,6 @@ def test_filter_tasks_by_completion_status():
     filtered = scheduler.filter_tasks(is_completed=True)
 
     assert filtered == [(pet, complete_task)]
-
 
 # Tests that the scheduler correctly retrieves tasks belonging only to a specific pet.
 def test_filter_tasks_by_pet_name():
@@ -101,7 +99,6 @@ def test_filter_tasks_by_pet_name():
 
     assert filtered == [(cat, cat_task)]
 
-
 # Tests that completing a daily task automatically generates an identical task for tomorrow.
 def test_mark_complete_creates_next_daily_task(sample_pet, sample_task):
     """Completing a daily task should create a new incomplete task due tomorrow."""
@@ -115,7 +112,6 @@ def test_mark_complete_creates_next_daily_task(sample_pet, sample_task):
     assert next_task.is_completed is False
     assert next_task.title == sample_task.title
     assert next_task.due_date == date.today() + timedelta(days=1)
-
 
 # Tests that the scheduler correctly orders tasks based on their assigned time slots.
 def test_sort_by_time_returns_tasks_in_chronological_order():
@@ -132,7 +128,6 @@ def test_sort_by_time_returns_tasks_in_chronological_order():
     sorted_tasks = scheduler.sort_by_time([midday_task, late_task, early_task])
 
     assert sorted_tasks == [early_task, midday_task, late_task]
-
 
 # Tests that completing a weekly task successfully schedules the next occurrence seven days later.
 def test_mark_complete_creates_next_weekly_task(sample_pet):
@@ -155,7 +150,6 @@ def test_mark_complete_creates_next_weekly_task(sample_pet):
     assert next_task in sample_pet.tasks
     assert next_task.due_date == date.today() + timedelta(weeks=1)
 
-
 # Tests that scheduling concurrent tasks for different pets properly triggers a conflict warning.
 def test_detect_time_conflicts_returns_warning():
     """Scheduler.detect_time_conflicts() should warn when tasks share the same time."""
@@ -177,7 +171,6 @@ def test_detect_time_conflicts_returns_warning():
     assert "08:00" in warnings[0]
     assert "Morning walk [Buddy]" in warnings[0]
     assert "Breakfast [Mochi]" in warnings[0]
-
 
 # Tests that multiple overlapping tasks for the exact same pet accurately trigger conflict warnings.
 def test_detect_time_conflicts_flags_duplicate_times():
@@ -215,11 +208,9 @@ class _FakeGeminiModels:
             },
         )()
 
-
 class _FakeGeminiClient:
     def __init__(self, api_key=None):
         self.models = _FakeGeminiModels()
-
 
 def _fake_generate_embeddings(texts, model="gemini-embedding-001"):
     embeddings = []
@@ -234,6 +225,21 @@ def _fake_generate_embeddings(texts, model="gemini-embedding-001"):
         )
     return embeddings
 
+# Tests that the system accurately saves an uploaded PDF file directly into the data folder.
+def test_save_uploaded_pdf_creates_file():
+    test_file_name = "test_upload_file.pdf"
+    test_buffer = b"dummy pdf content"
+    
+    saved_path = save_uploaded_pdf(test_file_name, test_buffer)
+    
+    assert os.path.exists(saved_path)
+    assert os.path.basename(saved_path) == test_file_name
+    
+    with open(saved_path, "rb") as f:
+        assert f.read() == test_buffer
+        
+    # Cleanup
+    os.remove(saved_path)
 
 # Tests that calling the LLM returns the strictly formatted scheduling layout.
 def test_schedule_generation_returns_output():
@@ -248,7 +254,6 @@ def test_schedule_generation_returns_output():
     assert "SCHEDULE:" in result
     assert "EXPLANATION:" in result
 
-
 # Tests the system's ability to flag a generated schedule that drops essential tasks.
 def test_validation_detects_missing_tasks():
     incomplete_schedule = """
@@ -261,11 +266,39 @@ def test_validation_detects_missing_tasks():
     """
 
     result = validate_schedule(incomplete_schedule)
-
+    
     assert result["status"] == "invalid"
     assert result["issues"]
     assert any("Missing essential tasks" in issue for issue in result["issues"])
 
+# Verifies that validation flags a generated schedule if it drops a user's specifically requested task.
+def test_validation_detects_missing_user_tasks():
+    incomplete_schedule = """
+    SCHEDULE:
+    8:00 AM - Feed the dog
+    12:00 PM - Lunch
+    EXPLANATION: A short schedule.
+    """
+    task = Task("T1", "Vet Appointment", "Checkup", 60, Priority.CRITICAL, "once", "morning")
+    
+    result = validate_schedule(incomplete_schedule, user_tasks=[task])
+    
+    assert result["status"] == "invalid"
+    assert any("Vet Appointment" in issue for issue in result["issues"])
+
+# Verifies that validation catches multiple tasks scheduled at the exact same time in the text.
+def test_validation_detects_time_conflicts():
+    conflict_schedule = """
+    SCHEDULE:
+    08:00 AM - Morning Walk
+    08:00 AM - Breakfast
+    12:00 PM - Lunch
+    EXPLANATION: Overlapping schedule.
+    """
+    result = validate_schedule(conflict_schedule)
+    
+    assert result["status"] == "invalid"
+    assert any("Time conflicts detected" in issue for issue in result["issues"])
 
 # Tests that the internal RAG algorithm accurately retrieves chunks based on semantic similarity.
 def test_retrieval_returns_relevant_chunks():
@@ -286,7 +319,6 @@ def test_retrieval_returns_relevant_chunks():
 
     assert results
     assert "exercise" in results[0][0].lower() or "walk" in results[0][0].lower()
-
 
 # Tests the entire end-to-end pipeline combining user tasks, time bounds, and RAG retrieval.
 def test_rag_with_added_tasks():
@@ -328,14 +360,12 @@ def test_rag_with_added_tasks():
     assert schedule_result
     assert "SCHEDULE:" in schedule_result
 
-
 # Tests that standard textual time boundaries correctly map into numerical minutes budgets.
 def test_scheduler_parses_time_range():
     """Scheduler should properly parse string 'HH:MM - HH:MM' into total_time_available minutes."""
     owner = Owner("O1", "Jordan", "jordan@example.com", "08:00 - 10:00")
     scheduler = Scheduler("S1", owner)
     assert scheduler.total_time_available == 120
-
 
 # Tests that low-priority tasks are dropped when total task durations exceed the allotted time budget.
 def test_scheduler_apply_constraints_drops_excess_tasks():
@@ -359,22 +389,3 @@ def test_scheduler_apply_constraints_drops_excess_tasks():
     assert len(constrained) == 2
     assert constrained[0][1] == t1
     assert constrained[1][1] == t2
-
-
-# Tests that the system accurately saves an uploaded PDF file directly into the data folder.
-def test_save_uploaded_pdf_creates_file():
-    from rag_system import save_uploaded_pdf
-    
-    test_file_name = "test_upload_file.pdf"
-    test_buffer = b"dummy pdf content"
-    
-    saved_path = save_uploaded_pdf(test_file_name, test_buffer)
-    
-    assert os.path.exists(saved_path)
-    assert os.path.basename(saved_path) == test_file_name
-    
-    with open(saved_path, "rb") as f:
-        assert f.read() == test_buffer
-        
-    # Cleanup
-    os.remove(saved_path)

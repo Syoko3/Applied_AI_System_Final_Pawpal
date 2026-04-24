@@ -67,8 +67,14 @@ def format_pipeline_error(error: Exception) -> str:
 
     if "503" in error_text or "UNAVAILABLE" in upper_text or "HIGH DEMAND" in upper_text:
         return (
-            "Gemini is temporarily overloaded right now. Please try again in a minute. "
+            "⚠️ Gemini is temporarily overloaded right now. Please try again in a minute. "
             "The app also retries automatically and falls back to a lighter model."
+        )
+
+    if "429" in error_text or "RESOURCE_EXHAUSTED" in upper_text or "QUOTA" in upper_text:
+        return (
+            "⚠️ Gemini API Quota Exceeded. You've hit the Free Tier limit (likely the 15 requests per minute limit). "
+            "Please wait about 60 seconds and try again!"
         )
 
     if "GEMINI_API_KEY" in error_text:
@@ -276,7 +282,7 @@ if run_pipeline:
             with st.spinner("Generating schedule from retrieved context..."):
                 schedule_text = generate_schedule_with_context(enhanced_request, retrieved_context)
 
-            validation_result = validate_schedule(schedule_text)
+            validation_result = validate_schedule(schedule_text, user_tasks=st.session_state.tasks)
             schedule_only, explanation_only = split_schedule_response(schedule_text)
 
             st.session_state.retrieved_context = retrieved_context
@@ -319,13 +325,29 @@ if st.session_state.schedule_text:
     if st.session_state.tasks:
         st.divider()
         st.subheader("Task Tracking")
+        
+        filter_col, _ = st.columns([1, 2])
+        with filter_col:
+            filter_option = st.radio("Filter:", ["All", "Pending", "Completed"], horizontal=True, label_visibility="collapsed")
+            
         st.caption("Mark your custom tasks as complete once you finish them:")
-        for task in st.session_state.tasks:
-            task.is_completed = st.checkbox(
-                f"{task.title} at {task.time} ({task.duration} min, {task.priority.name} Priority)",
-                value=task.is_completed,
-                key=f"chk_{task.task_id}"
-            )
+        
+        # Apply filter
+        display_tasks = st.session_state.tasks
+        if filter_option == "Pending":
+            display_tasks = [t for t in st.session_state.tasks if not t.is_completed]
+        elif filter_option == "Completed":
+            display_tasks = [t for t in st.session_state.tasks if t.is_completed]
+            
+        if not display_tasks:
+            st.info(f"No {filter_option.lower()} tasks to show.")
+        else:
+            for task in display_tasks:
+                task.is_completed = st.checkbox(
+                    f"{task.title} at {task.time} ({task.duration} min, {task.priority.name} Priority)",
+                    value=task.is_completed,
+                    key=f"chk_{task.task_id}"
+                )
 
     with st.expander("Retrieved Context"):
         st.text(st.session_state.retrieved_context)

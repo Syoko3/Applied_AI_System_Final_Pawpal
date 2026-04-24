@@ -42,7 +42,6 @@ def save_uploaded_pdf(file_name: str, file_buffer: bytes) -> str:
         
     return save_path
 
-
 def extract_text_from_pdf(pdf_path: str) -> str:
     """
     Extract text from a PDF file.
@@ -76,7 +75,6 @@ def extract_text_from_pdf(pdf_path: str) -> str:
             text += f"\n--- Page {page_num + 1} ---\n{page_text}"
     
     return text.strip()
-
 
 # ---------------------------------------------------------------------------
 # Text Chunking
@@ -113,7 +111,6 @@ def chunk_text(
     
     return chunks
 
-
 def chunk_text_by_sentences(
     text: str,
     target_chunk_size: int = 512,
@@ -147,7 +144,6 @@ def chunk_text_by_sentences(
         chunks.append(current_chunk.strip())
     
     return chunks
-
 
 # ---------------------------------------------------------------------------
 # Gemini Embeddings Generation
@@ -203,7 +199,6 @@ def generate_embeddings(
         f"Last error: {last_error}"
     )
 
-
 # ---------------------------------------------------------------------------
 # Similarity Search
 # ---------------------------------------------------------------------------
@@ -230,7 +225,6 @@ def cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
         return 0.0
     
     return dot_product / (magnitude1 * magnitude2)
-
 
 def search_similar_chunks(
     query: str,
@@ -271,7 +265,6 @@ def search_similar_chunks(
     # Sort by similarity and return top-k
     similarities.sort(key=lambda x: x[1], reverse=True)
     return similarities[:top_k]
-
 
 def search_with_faiss(
     query: str,
@@ -331,7 +324,6 @@ def search_with_faiss(
         results.append((chunks[int(idx)], float(similarity)))
     
     return results
-
 
 # ---------------------------------------------------------------------------
 # Main RAG Pipeline

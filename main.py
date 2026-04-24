@@ -6,14 +6,11 @@ from pawpal_system import (
     validate_and_fix_schedule
 )
 from rag_system import (
-    RAGSystem,
-    extract_text_from_pdf,
     chunk_text,
     chunk_text_by_sentences,
     generate_embeddings,
     search_similar_chunks,
-    cosine_similarity,
-    save_uploaded_pdf,
+    save_uploaded_pdf
 )
 from google import genai
 from pathlib import Path
@@ -29,10 +26,8 @@ except ImportError:
 if load_dotenv is not None:
     load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=False)
 
-
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
-
 
 MACHINE_LEARNING_KB = """
 Machine Learning Fundamentals
@@ -144,7 +139,6 @@ Consider individual health conditions when planning meals.
 Consult nutrition professionals for specific dietary needs.
 """
 
-
 def print_task_list(title, task_pairs):
     print(f"\n{title}")
     print("-" * len(title))
@@ -154,7 +148,6 @@ def print_task_list(title, task_pairs):
             f"{task.time} | {pet.name:<4} | {task.title:<22} | "
             f"{task.priority.name:<8} | {status}"
         )
-
 
 # Runs a basic integration test demonstrating owner setup, pets, and scheduling functionality.
 def run_test():
@@ -214,6 +207,28 @@ def run_test():
     scheduler.display_plan()
     print(scheduler.explain_reasoning())
 
+# Simulates a user uploading a PDF and the system saving it into the permanent data/ folder.
+def run_save_pdf_demo():
+    """Demo saving an uploaded file to the data directory."""
+    print("\n" + "=" * 70)
+    print("🐾 PawPal PDF Upload & Storage Demo")
+    print("=" * 70)
+    
+    test_file_name = "demo_pet_guide.pdf"
+    test_buffer = b"%PDF-1.4\n% Dummy PDF Content for Demo"
+    
+    print(f"📁 Simulating user uploading file: '{test_file_name}'...")
+    saved_path = save_uploaded_pdf(test_file_name, test_buffer)
+    
+    print(f"✅ File successfully stored permanently at:")
+    print(f"   {saved_path}")
+    
+    if os.path.exists(saved_path):
+        print(f"   (Verified file exists on disk, size: {os.path.getsize(saved_path)} bytes)")
+        
+    # Cleanup for demo
+    os.remove(saved_path)
+    print("🧹 Cleaned up demo file.")
 
 # Demonstrates the schedule generation workflow alongside validation and automatic fixing.
 def run_validation_demo():
@@ -327,6 +342,58 @@ def run_validation_demo():
     print("✅ VALIDATION DEMO COMPLETE")
     print("=" * 70)
 
+
+# Demonstrates schedule validation failing because the AI omitted a custom requested user task.
+def run_validation_with_user_tasks_demo():
+    """Demo validation catching a missing user task."""
+    print("\n" + "=" * 70)
+    print("🐾 PawPal User Task Validation Demo")
+    print("=" * 70)
+    
+    task1 = Task("T1", "Vet Appointment", "Checkup", 60, Priority.CRITICAL, "once", "morning")
+    
+    generated_schedule = """
+    SCHEDULE:
+    08:00 AM - Morning Walk
+    09:00 AM - Breakfast
+    EXPLANATION: Normal schedule.
+    """
+    
+    print("📋 Checking schedule for custom tasks:")
+    print(f"   Expected Task: {task1.title}")
+    
+    validation = validate_schedule(generated_schedule, user_tasks=[task1])
+    
+    print(f"\n📊 Validation Result: {validation['status'].upper()}")
+    if validation['issues']:
+        print("\n⚠️  Issues Found:")
+        for i, issue in enumerate(validation['issues'], 1):
+            print(f"   {i}. {issue}")
+
+# Demonstrates schedule validation failing because of time conflicts in the text.
+def run_validation_time_conflicts_demo():
+    """Demo validation catching overlapping times."""
+    print("\n" + "=" * 70)
+    print("🐾 PawPal Time Conflict Validation Demo")
+    print("=" * 70)
+    
+    conflict_schedule = """
+    SCHEDULE:
+    08:00 AM - Morning Walk
+    08:00 AM - Breakfast
+    12:00 PM - Lunch
+    EXPLANATION: Overlapping schedule.
+    """
+    
+    print("📋 Checking schedule with conflicting times (08:00 AM):")
+    validation = validate_schedule(conflict_schedule)
+    
+    print(f"\n📊 Validation Result: {validation['status'].upper()}")
+    if validation['issues']:
+        print("\n⚠️  Issues Found:")
+        for i, issue in enumerate(validation['issues'], 1):
+            print(f"   {i}. {issue}")
+
 # Demonstrates semantic similarity searches by finding relevant chunks for specific queries.
 def demo_similarity_search(knowledge_base: str, title: str) -> None:
     """Run a demo of similarity search on a knowledge base."""
@@ -362,7 +429,6 @@ def demo_similarity_search(knowledge_base: str, title: str) -> None:
                 print(f"       {preview}...")
         except Exception as e:
             print(f"   Error: {e}")
-
 
 # Demonstrates the end-to-end RAG system answering questions via PDF integration and Gemini.
 def demo_rag_system() -> None:
@@ -403,7 +469,6 @@ def demo_rag_system() -> None:
         except Exception as e:
             print(f"Error: {e}")
 
-
 # Compares different RAG text chunking strategies based on generation time and accuracy.
 def benchmark_chunking() -> None:
     """Show the impact of different chunking strategies."""
@@ -423,7 +488,6 @@ def benchmark_chunking() -> None:
         print(f"  - Total chunks: {len(chunks)}")
         print(f"  - Average chunk size: {avg_chunk_size:.0f} characters")
         print(f"  - Coverage: {(sum(len(chunk) for chunk in chunks) / len(sample_text)) * 100:.1f}%\n")
-
 
 # Runs the primary RAG playground that loops through all search and comparison demonstrations.
 def run_rag_playground() -> None:
@@ -464,7 +528,6 @@ def run_rag_playground() -> None:
     except Exception as e:
         print(f"\n❌ Error: {e}")
 
-
 # Showcases PawPal using the RAG model to generate contextually relevant pet care answers.
 def run_pawpal_rag_example():
     """Run the PawPal RAG integration example."""
@@ -497,7 +560,6 @@ def run_pawpal_rag_example():
         recommendation = get_pet_care_recommendation(query, chunks, embeddings)
         print(recommendation)
         print("\n" + "=" * 70 + "\n")
-
 
 # Assembles a generic pet care knowledge base containing various tips and facts.
 def create_pet_care_knowledge_base() -> tuple:
@@ -564,7 +626,6 @@ def create_pet_care_knowledge_base() -> tuple:
     
     return chunks, embeddings, knowledge_base
 
-
 def get_pet_care_recommendation(query: str, chunks: list, embeddings: list) -> str:
     """
     Get a pet care recommendation based on the knowledge base using RAG.
@@ -600,7 +661,6 @@ Please provide a helpful, specific answer based on the context provided."""
 
     return response.text or ""
 
-
 # Shows a full pipeline simulation combining the RAG knowledge base with custom user tasks.
 def run_rag_with_tasks_demo():
     """Run a demo of RAG schedule generation with an owner time range and custom tasks."""
@@ -626,7 +686,7 @@ def run_rag_with_tasks_demo():
     profile_context = f"This is a schedule for {pet.name} (a {pet.age}-year-old {pet.breed} {pet.species}), owned by {owner.name}."
     profile_context += f"\nOwner is available between {owner.daily_available_time_range}."
     
-    user_request = "Create a comprehensive daily schedule combining my tasks and standard pet care activities."
+    user_request = "Create a comprehensive daily schedule combining my tasks and standard pet care activities. In particular, how much should I feed my Labrador, and when?"
     
     enhanced_request = f"{profile_context}\n\nRequest: {user_request}"
     
@@ -641,8 +701,10 @@ def run_rag_with_tasks_demo():
     print(enhanced_request)
     print("-" * 70)
     
-    print("\n🔍 Retrieving relevant context...")
-    results = search_similar_chunks(enhanced_request, chunks, embeddings, top_k=3)
+    rag_query = f"Daily care, feeding, and exercise needs for a {pet.breed} {pet.species}"
+    
+    print(f"\n🔍 Retrieving relevant context using query: '{rag_query}'...")
+    results = search_similar_chunks(rag_query, chunks, embeddings, top_k=3)
     retrieved_context = "\n".join([chunk for chunk, _ in results])
     
     print("\n🤖 Generating schedule with Gemini...")
@@ -650,7 +712,6 @@ def run_rag_with_tasks_demo():
     
     print("\n✅ Final Schedule:")
     print(schedule_text)
-
 
 # Simulates a time-constrained scheduler forcefully dropping lower priority tasks to fit the owner's budget.
 def run_time_constraints_demo():
@@ -679,31 +740,6 @@ def run_time_constraints_demo():
     scheduler.generate_schedule()
     
     print(scheduler.explain_reasoning())
-
-
-# Simulates a user uploading a PDF and the system saving it into the permanent data/ folder.
-def run_save_pdf_demo():
-    """Demo saving an uploaded file to the data directory."""
-    print("\n" + "=" * 70)
-    print("🐾 PawPal PDF Upload & Storage Demo")
-    print("=" * 70)
-    
-    test_file_name = "demo_pet_guide.pdf"
-    test_buffer = b"%PDF-1.4\n% Dummy PDF Content for Demo"
-    
-    print(f"📁 Simulating user uploading file: '{test_file_name}'...")
-    saved_path = save_uploaded_pdf(test_file_name, test_buffer)
-    
-    print(f"✅ File successfully stored permanently at:")
-    print(f"   {saved_path}")
-    
-    if os.path.exists(saved_path):
-        print(f"   (Verified file exists on disk, size: {os.path.getsize(saved_path)} bytes)")
-        
-    # Cleanup for demo
-    os.remove(saved_path)
-    print("🧹 Cleaned up demo file.")
-
 
 # Generates direct pet schedules from raw text context guidelines and basic inputs.
 def run_schedule_generation_examples():
@@ -741,34 +777,70 @@ def run_schedule_generation_examples():
     result_2 = generate_schedule_with_context(user_input_2, context_2)
     print(result_2)
 
+# Demonstrates marking a task as complete and how it automatically schedules the next occurrence for recurring tasks.
+def run_task_completion_demo():
+    """Demo task completion and recurrence."""
+    print("\n" + "=" * 70)
+    print("🐾 PawPal Task Completion & Recurrence Demo")
+    print("=" * 70)
+    
+    pet = Pet(str(uuid.uuid4()), "Max", "Dog", "Labrador", 3)
+    
+    task1 = Task("T1", "Morning Walk", "Exercise", 30, Priority.HIGH, "daily", "morning", "08:00")
+    pet.add_task(task1)
+    
+    print("📋 Initial Task Status:")
+    print(f"   Task: {task1.title}")
+    print(f"   Completed: {task1.is_completed}")
+    print(f"   Frequency: {task1.frequency}")
+    
+    print("\n✅ User marks task as complete...")
+    next_task = task1.mark_complete()
+    
+    print("\n📋 Updated Task Status:")
+    print(f"   Original Task Completed: {task1.is_completed}")
+    
+    if next_task:
+        print("\n📅 Next Occurrence Automatically Created!")
+        print(f"   Title: {next_task.title}")
+        print(f"   Due Date: {next_task.due_date}")
+        print(f"   Completed: {next_task.is_completed}")
 
 if __name__ == "__main__":
     import sys
     
     if len(sys.argv) > 1:
-        if sys.argv[1] == "validate":
+        if sys.argv[1] == "upload":
+            run_save_pdf_demo()
+        elif sys.argv[1] == "validate":
             run_validation_demo()
+        elif sys.argv[1] == "validate_tasks":
+            run_validation_with_user_tasks_demo()
+        elif sys.argv[1] == "validate_conflicts":
+            run_validation_time_conflicts_demo()
         elif sys.argv[1] == "rag_basic":
             run_pawpal_rag_example()
         elif sys.argv[1] == "rag_tasks":
             run_rag_with_tasks_demo()
         elif sys.argv[1] == "constraints":
             run_time_constraints_demo()
-        elif sys.argv[1] == "upload":
-            run_save_pdf_demo()
         elif sys.argv[1] == "playground":
             run_rag_playground()
         elif sys.argv[1] == "schedule":
             run_schedule_generation_examples()
-        else:
-            print("Usage: python main.py [validate|rag_basic|rag_tasks|constraints|upload|playground|schedule]")
-            print("  validate    - Run schedule validation demo")
-            print("  rag_basic   - Run basic PawPal RAG integration example")
-            print("  rag_tasks   - Run RAG demo incorporating user-added tasks and time range")
-            print("  constraints - Run demo showing how time budgets drop low-priority tasks")
-            print("  upload      - Run demo simulating user PDF upload to data folder")
-            print("  playground  - Run the merged RAG playground demos")
-            print("  schedule    - Run schedule generation examples")
-            print("  (no args)   - Run basic test")
+        elif sys.argv[1] == "completion":
+            run_task_completion_demo()
+            print("Usage: python main.py [upload|validate|validate_tasks|validate_conflicts|rag_basic|rag_tasks|constraints|playground|schedule|completion]")
+            print("  upload             - Run demo simulating user PDF upload to data folder")
+            print("  validate           - Run schedule validation demo")
+            print("  validate_tasks     - Run demo showing validation catching dropped user tasks")
+            print("  validate_conflicts - Run demo showing validation catching time conflicts")
+            print("  rag_basic          - Run basic PawPal RAG integration example")
+            print("  rag_tasks          - Run RAG demo incorporating user-added tasks and time range")
+            print("  constraints        - Run demo showing how time budgets drop low-priority tasks")
+            print("  playground         - Run the merged RAG playground demos")
+            print("  schedule           - Run schedule generation examples")
+            print("  completion         - Run demo showing task completion and automatic recurrence")
+            print("  (no args)          - Run basic test")
     else:
         run_test()

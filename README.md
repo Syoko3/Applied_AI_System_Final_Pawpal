@@ -31,14 +31,17 @@ python -m streamlit run app.py
 
 Running the demo (main.py):
 ```bash
-python main.py             # Runs the base scheduler/task demo
-python main.py validate    # Runs schedule generation, validation, and optional fixing demo
-python main.py rag_basic   # Runs the basic RAG pet-care advisor example demo
-python main.py rag_tasks   # Runs the demo for the RAG pet-care advisor example incorporating user-added tasks and time range
-python main.py constraints # Run demo showing how time budgets drop low-priority tasks
-python main.py upload      # Runs the PDF upload demo
-python main.py playground  # Runs the merged RAG playground demos
-python main.py schedule    # Runs schedule-generation examples
+python main.py                      # Run basic test
+python main.py upload               # Run demo simulating user PDF upload to data folder
+python main.py validate             # Run schedule validation demo
+python main.py validate_tasks       # Run demo showing validation catching dropped user tasks
+python main.py validate_conflicts   # Run demo showing validation catching time conflicts
+python main.py rag_basic            # Run basic PawPal RAG integration example
+python main.py rag_tasks            # Run RAG demo incorporating user-added tasks and time range
+python main.py constraints          # Run demo showing how time budgets drop low-priority tasks
+python main.py playground           # Run the merged RAG playground demos
+python main.py schedule             # Run schedule generation examples
+python main.py completion           # Run demo showing task completion and automatic recurrence
 ```
 
 Testing the app:

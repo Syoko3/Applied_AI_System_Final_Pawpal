@@ -638,12 +638,13 @@ PET SCHEDULE GENERATION RESULT
 # Schedule Validation and Improvement
 # ---------------------------------------------------------------------------
 
-def validate_schedule(schedule_text: str) -> dict:
+def validate_schedule(schedule_text: str, user_tasks: Optional[list[Task]] = None) -> dict:
     """
-    Validate an AI-generated pet schedule for missing essential tasks and realism.
+    Validate an AI-generated pet schedule for missing essential tasks, realism, custom user tasks, and time conflicts.
     
     Args:
         schedule_text: The generated schedule text to validate
+        user_tasks: Optional list of custom Task objects that must be present
     
     Returns:
         Dictionary with:
@@ -651,6 +652,7 @@ def validate_schedule(schedule_text: str) -> dict:
         - "issues": list of identified problems
         - "summary": brief description of validation result
     """
+    import re
     issues = []
     
     # Normalize text for searching
@@ -675,18 +677,35 @@ def validate_schedule(schedule_text: str) -> dict:
             f"A complete pet schedule should include feeding, exercise, and rest periods."
         )
     
-    # Check for timing information
-    time_patterns = [
-        "am", "pm", ":00", ":30", "morning", "afternoon", "evening", "night",
-        "7:", "8:", "9:", "10:", "11:", "12:", "13:", "14:", "15:", "16:", "17:", "18:", "19:", "20:", "21:"
-    ]
-    has_timing = any(pattern in schedule_lower for pattern in time_patterns)
+    # Check for timing information and extract times to check for conflicts
+    time_regex = r'\b((?:[01]?[0-9]|2[0-3]):[0-5][0-9]\s*(?:AM|PM|am|pm)?)\b'
+    matches = re.findall(time_regex, schedule_text, re.IGNORECASE)
     
-    if not has_timing:
+    if not matches:
         issues.append(
             "Missing timing information. Schedule should include specific times or time slots "
             "(e.g., '8:00 AM - Morning walk', 'afternoon playtime')."
         )
+    else:
+        # Normalize and check for duplicate times (conflicts)
+        seen_times = set()
+        conflicts = set()
+        for t in matches:
+            norm_t = t.upper().strip()
+            # remove leading zero for consistent comparison (e.g., 08:00 AM vs 8:00 AM)
+            if norm_t.startswith("0") and len(norm_t) > 1 and norm_t[1] != ":":
+                norm_t = norm_t[1:]
+                
+            if norm_t in seen_times:
+                conflicts.add(norm_t)
+            else:
+                seen_times.add(norm_t)
+                
+        if conflicts:
+            issues.append(
+                f"Time conflicts detected: Multiple tasks appear to be scheduled exactly at {', '.join(conflicts)}. "
+                f"Ensure tasks do not overlap."
+            )
     
     # Check for task count (too packed or too sparse)
     task_keywords = ["walk", "feed", "play", "rest", "exercise", "groom", "sleep", "meal"]
@@ -721,6 +740,19 @@ def validate_schedule(schedule_text: str) -> dict:
             "No explicit rest or sleep time scheduled. Pets need adequate sleep/rest periods "
             "(dogs: 12-14 hours daily, cats: 12-16 hours daily)."
         )
+        
+    # Check if user-added tasks are present
+    if user_tasks:
+        missing_user_tasks = []
+        for task in user_tasks:
+            if task.title.lower() not in schedule_lower:
+                missing_user_tasks.append(task.title)
+        
+        if missing_user_tasks:
+            issues.append(
+                f"Missing custom requested tasks: {', '.join(missing_user_tasks)}. "
+                f"The AI failed to include your specific manual tasks in the schedule."
+            )
     
     # Determine status
     status = "invalid" if issues else "valid"
