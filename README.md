@@ -1,9 +1,7 @@
 # Pawpal+
 
-PawPal+ is an AI-powered pet care scheduling system that combines a deterministic scheduling engine with a Retrieval-Augmented Generation (RAG) pipeline to automatically build, validate, and refine daily care plans for one or more pets. It allows owners to define their pets, assign tasks with priorities and time preferences, and have Gemini LLM generate a grounded, natural-language schedule backed by knowledge retrieved from uploaded pet care PDFs. The system also includes a self-correction loop that validates generated schedules against essential care rules — feeding, exercise, and rest — and automatically rewrites them if issues are found, while exposing a Streamlit web interface and a CLI entry point for flexible usage.
----
-
-Demo Video Recording Link: https://drive.google.com/file/d/1VIdXEOeQ9NVmd2mYNYdmmyvvqHCdpyyW/view?usp=sharing
+- PawPal+ is an AI-powered pet care scheduling system that combines a deterministic scheduling engine with a Retrieval-Augmented Generation (RAG) pipeline to automatically build, validate, and refine daily care plans for one or more pets. It allows owners to define their pets, assign tasks with priorities and time preferences, and have Gemini LLM generate a grounded, natural-language schedule backed by knowledge retrieved from uploaded pet care PDFs. The system also includes a self-correction loop that validates generated schedules against essential care rules — feeding, exercise, and rest — and automatically rewrites them if issues are found, while exposing a Streamlit web interface and a CLI entry point for flexible usage.
+- Demo Video Recording Link: https://drive.google.com/file/d/1VIdXEOeQ9NVmd2mYNYdmmyvvqHCdpyyW/view?usp=sharing
 
 ---
 
