@@ -15,7 +15,7 @@ from pawpal_system import (
     generate_schedule_with_context,
     validate_schedule,
 )
-from rag_system import save_uploaded_pdf, search_similar_chunks
+from rag_system import save_uploaded_pdf, search_similar_chunks, RAGSystem
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -353,3 +353,138 @@ def test_scheduler_apply_constraints_drops_excess_tasks():
     assert len(constrained) == 2
     assert constrained[0][1] == t1
     assert constrained[1][1] == t2
+
+# Tests that the scheduler correctly handles tasks from multiple pets.
+def test_multi_pet_scheduling():
+    owner = Owner("O1", "Jordan", "08:00 - 18:00")
+    dog = Pet("P1", "Buddy", "Canine", "Labrador", 5)
+    cat = Pet("P2", "Mochi", "Feline", "Siamese", 3)
+    owner.add_pet(dog)
+    owner.add_pet(cat)
+    
+    dog_task = Task("T1", "Morning walk", "Exercise", 20, Priority.HIGH, "morning", "08:00")
+    cat_task = Task("T2", "Breakfast", "Feeding", 10, Priority.MEDIUM, "morning", "08:30")
+    dog.add_task(dog_task)
+    cat.add_task(cat_task)
+    
+    scheduler = Scheduler("S1", owner)
+    schedule = scheduler.generate_schedule()
+    
+    # Both tasks should be in the schedule
+    task_titles = [st.task.title for st in schedule.scheduled_tasks]
+    assert "Morning walk" in task_titles
+    assert "Breakfast" in task_titles
+    
+    # Both pets should be represented
+    pet_names = [st.pet.name for st in schedule.scheduled_tasks]
+    assert "Buddy" in pet_names
+    assert "Mochi" in pet_names
+
+# Tests that RAG retrieval works effectively when the query involves multiple pets.
+def test_rag_multi_pet_context():
+    chunks = [
+        "Labrador Retrievers need at least 60 minutes of exercise daily.",
+        "Siamese cats are very social and need regular interaction.",
+        "Feeding schedules should be consistent for all pets."
+    ]
+    embeddings = _fake_generate_embeddings(chunks)
+    
+    query = "How much exercise for my Labrador and how to care for my Siamese cat?"
+    
+    with patch("rag_system.generate_embeddings", _fake_generate_embeddings):
+        results = search_similar_chunks(query, chunks, embeddings, top_k=2)
+    
+    context = " ".join([chunk for chunk, _ in results])
+    assert "Labrador" in context
+    assert "Siamese" in context
+
+# Tests that validation correctly identifies missing tasks for specific pets in a multi-pet schedule.
+def test_validation_multi_pet_tasks():
+    multi_pet_schedule = """
+    SCHEDULE:
+    08:00 AM - Morning walk [Buddy] (Duration: 20 min, Priority: HIGH)
+    08:30 AM - Breakfast [Buddy] (Duration: 10 min, Priority: MEDIUM)
+    EXPLANATION: Schedule for Buddy.
+    """
+    
+    dog = Pet("P1", "Buddy", "Canine", "Labrador", 5)
+    cat = Pet("P2", "Mochi", "Feline", "Siamese", 3)
+    
+    dog_task = Task("T1", "Morning walk", "Exercise", 20, Priority.HIGH, "morning")
+    cat_task = Task("T2", "Clean litter box", "Care", 10, Priority.MEDIUM, "evening")
+    
+    # Validation should fail because Mochi's task is missing
+    result = validate_schedule(multi_pet_schedule, user_tasks=[dog_task, cat_task])
+    
+    assert result["status"] == "invalid"
+    assert any("Clean litter box" in issue for issue in result["issues"])
+
+# Tests that RAGSystem can load multiple PDFs and retrieve content from all of them.
+def test_multi_pdf_loading():
+    rag = RAGSystem()
+    
+    # Mocking extraction and embeddings for two "PDFs"
+    with patch("rag_system.extract_text_from_pdf") as mock_extract:
+        with patch("rag_system.generate_embeddings") as mock_embed:
+            # First PDF
+            mock_extract.return_value = "Dog care: Labradors need exercise."
+            mock_embed.return_value = [[1.0, 0.0, 0.0]] # Mocked embedding
+            rag.load_pdf("dog.pdf", append=True)
+            
+            # Second PDF
+            mock_extract.return_value = "Cat care: Siamese cats need play."
+            mock_embed.return_value = [[0.0, 1.0, 0.0]] # Mocked embedding
+            rag.load_pdf("cat.pdf", append=True)
+            
+    assert len(rag.chunks) == 2
+    assert "Dog care" in rag.chunks[0]
+    assert "Cat care" in rag.chunks[1]
+    assert len(rag.embeddings) == 2
+
+# Tests that the new robust parser handles various formatting and pet headers.
+def test_robust_parser():
+    from pawpal_system import parse_ai_tasks
+    
+    schedule_text = """
+    ### Buddy's Schedule
+    08:00 AM - Morning feeding (Duration: 15 min, Priority: CRITICAL)
+    09:30 AM: Walk in the park (Duration: 30 minutes, Priority: High)
+    
+    ### Mochi's Schedule
+    10:00 AM - Nap time (Duration: 120 min, Priority: LOW)
+    1:00 PM: Play with toy (Duration: 20 min, Priority: medium)
+    """
+    
+    tasks = parse_ai_tasks(schedule_text)
+    
+    assert len(tasks) == 4
+    
+    # Check pet names
+    assert tasks[0].pet_name == "Buddy"
+    assert tasks[1].pet_name == "Buddy"
+    assert tasks[2].pet_name == "Mochi"
+    assert tasks[3].pet_name == "Mochi"
+    
+    # Check formatting flexibility
+    assert tasks[0].time == "08:00 AM"
+    assert tasks[1].time == "09:30 AM"
+    assert tasks[1].duration == 30
+    assert tasks[1].priority == Priority.HIGH
+
+# Tests that resetting the app data correctly clears the data directory.
+def test_reset_data():
+    from rag_system import clear_data_directory, save_uploaded_pdf
+    import os
+    
+    # Create a dummy file
+    dummy_name = "test_reset.pdf"
+    dummy_content = b"PDF content"
+    path = save_uploaded_pdf(dummy_name, dummy_content)
+    
+    assert os.path.exists(path)
+    
+    # Clear the directory
+    deleted_count = clear_data_directory()
+    
+    assert deleted_count >= 1
+    assert not os.path.exists(path)

@@ -1,15 +1,19 @@
 ### Pawpal+
 
+Pawpal+ is an AI-powered pet care assistant that leverages Retrieval-Augmented Generation (RAG) and the Gemini API to create, validate, and track personalized pet schedules. It schedules for completeness and realism, and provides a Streamlit interface for the full upload -> retrieve -> generate -> validate flow.
+
+---
+
 ### Title and Summary
 
-PawPal is an AI pet assistant that uses uploaded pet care pdf documents for RAG-based retrieval and uses the Gemini API to generate personalized schedules. It schedules for completeness and realism. It provides a Streamlit interface for the full upload → retrieve → generate → validate flow.
+Pawpal+ 
 
 ### Architecture Overview
 
 UML Diagram:
 ![alt text](assets/UML_Pawpal+_RAG.png)
 
-- 
+- The Owner class is the central actor, which owns one or more Pet objects and are linked to a single Scheduler that manages their daily planning. 
 
 ### Setup Instructions
 
@@ -45,6 +49,7 @@ python main.py constraints          # Run demo showing how time budgets drop low
 python main.py playground           # Run the merged RAG playground demos
 python main.py schedule             # Run schedule generation examples
 python main.py completion           # Run demo showing task completion and automatic recurrence
+python main.py multi_pet            # Run comprehensive multi-pet pipeline demo (RAG + Validation)
 ```
 
 Testing the app:

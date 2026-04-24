@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 import uuid
 import os
+import re
 import time
 from google import genai
 
@@ -152,6 +153,8 @@ class Task:
     due_date: date = field(default_factory=date.today)
     is_completed: bool = False
     pet: Optional[Pet] = None
+    pet_name: Optional[str] = None # Added for tracking in multi-pet scenarios
+    rationale: str = ""           # Added for task-specific reasoning
 
     def mark_complete(self) -> None:
         """Mark this task complete."""
@@ -174,7 +177,6 @@ class Pet:
     species: str
     breed: str
     age: int
-    medical_notes: str = ""
     tasks: list[Task] = field(default_factory=list)
     owner: Optional[Owner] = None
 
@@ -502,7 +504,8 @@ GEMINI_MODELS = (
     "gemini-2.5-flash-lite",
     "gemini-2.0-flash",
     "gemini-1.5-flash",
-    "gemini-1.5-flash-8b",
+    "gemini-1.5-flash-pro",
+    "gemini-1.5-flash-lite"
 )
 
 def _get_gemini_client() -> genai.Client:
@@ -562,9 +565,12 @@ You are a professional pet care assistant. Based on the user request and the pro
 generate a structured daily pet schedule with a clear explanation.
 
 CRITICAL INSTRUCTIONS:
-1. TIME CONSTRAINTS: You must ONLY schedule tasks within the Owner's available time range specified in the user request. Do not schedule any activities outside of these hours.
-2. SPECIFIC TASKS: You must include ALL manually requested tasks at their exact requested times, durations, and priorities. Build the rest of the schedule around these fixed tasks.
-3. PRIORITY & DURATION: For any flexible tasks, sort and place them strictly based on their priority (CRITICAL/HIGH before LOW). You MUST explicitly include the duration and priority for EVERY task in the output using the format: "HH:MM AM/PM - Task Title (Duration: X min, Priority: Y)".
+1. MULTI-PET SCENARIO: If the request involves multiple pets, you MUST generate a SEPARATE schedule block for EACH pet. Use headings like "### [Pet Name]'s Schedule" for each block.
+2. TIME CONSTRAINTS: You must ONLY schedule tasks within the Owner's available time range specified in the user request. Do not schedule any activities outside of these hours.
+3. SPECIFIC TASKS: You must include ALL manually requested tasks at their exact requested times, durations, and priorities. Assign each manual task to the correct pet.
+4. PRIORITY & DURATION: You MUST explicitly include the duration and priority for EVERY task.
+5. PER-TASK RATIONALE: For EACH task in the schedule, you MUST provide a brief rationale (1 sentence) immediately following the task line.
+6. 24-HOUR FORMAT: All times MUST be in 24-hour format (HH:MM). Do NOT use AM/PM.
 
 USER REQUEST:
 {user_input}
@@ -575,10 +581,16 @@ PET CARE CONTEXT:
 Please provide your response in this exact format:
 
 SCHEDULE:
-[Generate a detailed hourly schedule for the pet(s) that strictly adheres to the available time range. Format each line as: HH:MM AM/PM - Task Title (Duration: X min, Priority: PriorityName)]
+[For each pet, provide their individual hourly schedule. 
+Format: 
+### [Pet Name]'s Schedule
+HH:MM - Task Title (Duration: X min, Priority: PriorityName)
+* Rationale: [Brief reason why this task is scheduled here based on context]
+...
+]
 
 EXPLANATION:
-[Provide a concise explanation of 2-3 sentences on how the schedule aligns with the provided context and honors the time constraints]
+[Provide a concise overview of the overall plan]
 """
 
     response_text = _generate_with_retry(prompt)
@@ -835,3 +847,82 @@ def validate_and_fix_schedule(
         result["improved_schedule"] = improved
     
     return result
+
+def parse_ai_tasks(schedule_text: str) -> list[Task]:
+    """Parse the text schedule into Task objects, detecting pet names from headers."""
+    parsed_tasks = []
+    lines = schedule_text.strip().split('\n')
+    
+    current_pet_name = "Unknown"
+    
+    # Flexible pattern for tasks: Time - [Pet] Title (Duration, Priority)
+    # Handles optional bolding (**), varied separators, and metadata
+    task_pattern = re.compile(
+        r'^\s*(?:\*+|-|•)?\s*(?:\*\*)?(?P<time>(?:[01]?\d|2[0-3]):[0-5]\d\s*(?:AM|PM|am|pm)?)(?:\*\*)?\s*[-:]\s*' 
+        r'(?:\*\*)?(?P<title>.+?)(?:\*\*)?'                                                        
+        r'(?:\s*\(?Duration:\s*(?P<duration>\d+)\s*min(?:ute)?s?,?\s*'           
+        r'Priority:\s*(?P<priority>\w+)\)?)?\s*$',                                
+        re.IGNORECASE
+    )
+    
+    # Pattern for pet headers like ### Buddy's Schedule or **Mochi's Schedule**
+    pet_header_pattern = re.compile(r'^(?:#+|-|\*+)\s*(.+?)(?:\'s)?\s+Schedule', re.IGNORECASE)
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        # Check for pet header
+        header_match = pet_header_pattern.match(line)
+        if header_match:
+            potential_name = header_match.group(1).strip()
+            # Validation: Don't accept "Explanation" as a pet name, and keep names reasonably short
+            if "explanation" not in potential_name.lower() and len(potential_name) < 40:
+                current_pet_name = potential_name
+            continue
+            
+        # Check for task
+        task_match = task_pattern.match(line)
+        if task_match:
+            try:
+                time_str = task_match.group('time').strip()
+                title_str = task_match.group('title').strip()
+                
+                # Handle optional metadata with defaults
+                duration_raw = task_match.group('duration')
+                duration_val = int(duration_raw) if duration_raw else 30
+                
+                priority_raw = task_match.group('priority')
+                priority_str = priority_raw.strip().upper() if priority_raw else "MEDIUM"
+                
+                # Map priority string to Priority enum
+                priority_obj = Priority.MEDIUM
+                try:
+                    priority_obj = Priority[priority_str]
+                except KeyError:
+                    pass
+                
+                new_task = Task(
+                    task_id=str(uuid.uuid4())[:8],
+                    title=title_str,
+                    description="",
+                    duration=duration_val,
+                    priority=priority_obj,
+                    preferred_time="any",
+                    time=time_str
+                )
+                # Attach pet name for tracking
+                new_task.pet_name = current_pet_name
+                parsed_tasks.append(new_task)
+            except (ValueError, IndexError):
+                continue
+        
+        # Check for rationale line
+        elif line.lstrip('* -•').strip().lower().startswith(("rationale:", "explanation:")) and parsed_tasks:
+            parts = line.split(":", 1)
+            if len(parts) > 1:
+                rationale_text = parts[1].strip().strip('*_')
+                parsed_tasks[-1].rationale = rationale_text
+                
+    return parsed_tasks

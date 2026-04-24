@@ -11,7 +11,8 @@ from rag_system import (
     chunk_text_by_sentences,
     generate_embeddings,
     search_similar_chunks,
-    save_uploaded_pdf
+    save_uploaded_pdf,
+    clear_data_directory
 )
 from google import genai
 from pathlib import Path
@@ -809,6 +810,96 @@ def run_task_completion_demo():
     print(f"   Task: {task1.title}")
     print(f"   Completed: {task1.is_completed}")
 
+# Demonstrates a full pipeline run for multiple pets including RAG and validation.
+def run_multi_pet_demo():
+    """Run a comprehensive demo for multiple pets with RAG and validation."""
+    print("\n" + "=" * 70)
+    print("🐾 PAWPAL MULTI-PET PIPELINE DEMO (RAG + VALIDATION)")
+    print("=" * 70)
+    
+    # 1. Setup Owner and Multiple Pets
+    owner = Owner(str(uuid.uuid4()), "Jordan", "08:00 - 18:00")
+    dog = Pet(str(uuid.uuid4()), "Buddy", "Dog", "Labrador", 5)
+    cat = Pet(str(uuid.uuid4()), "Mochi", "Cat", "Siamese", 3)
+    owner.add_pet(dog)
+    owner.add_pet(cat)
+    
+    # 2. Add manual tasks for each pet
+    task1 = Task(str(uuid.uuid4())[:8], "Vet Appointment", "Annual checkup", 60, Priority.CRITICAL, "morning", "09:00")
+    task1.pet = dog
+    dog.add_task(task1)
+    
+    task2 = Task(str(uuid.uuid4())[:8], "Clean Litter Box", "Daily maintenance", 15, Priority.MEDIUM, "evening", "17:00")
+    task2.pet = cat
+    cat.add_task(task2)
+    
+    print(f"📋 Profile: {owner.name} has {len(owner.pets)} pets: {dog.name} ({dog.breed}) and {cat.name} ({cat.breed})")
+    print(f"📝 Manual Tasks: {task1.title} for {dog.name}, {task2.title} for {cat.name}")
+    
+    # 3. Simulate RAG Context Retrieval (Multi-PDF)
+    print("\n🔍 Retrieving context from multiple PDFs...")
+    # Simulated knowledge base content from different files
+    chunks_pdf1 = ["Labrador Retrievers (dogs) need at least 60 minutes of daily exercise and regular vet checkups."]
+    chunks_pdf2 = ["Siamese cats need their litter boxes cleaned daily and enjoy interactive play sessions."]
+    chunks_shared = ["Feeding schedules for both dogs and cats should be consistent to maintain digestive health."]
+    
+    print(f"📁 Loaded dog_guide.pdf (1 chunk)")
+    print(f"📁 Loaded cat_guide.pdf (1 chunk)")
+    
+    # Combined context used for generation
+    retrieved_context = "\n".join(chunks_pdf1 + chunks_pdf2 + chunks_shared)
+    print("✅ Multi-source context retrieved successfully.")
+    
+    # 4. Generate Schedule
+    print("\n🤖 Generating combined schedule with Gemini...")
+    profile_context = f"This is a schedule for {dog.name} (dog) and {cat.name} (cat), owned by {owner.name}."
+    manual_tasks_str = f"- {task1.title} for {dog.name} at {task1.time}\n- {task2.title} for {cat.name} at {task2.time}"
+    user_request = f"Create a daily schedule for my pets. Include my manual tasks:\n{manual_tasks_str}"
+    
+    try:
+        schedule_text = generate_schedule_with_context(user_request, retrieved_context)
+        print("✅ Schedule generated:")
+        print(schedule_text)
+    except Exception as e:
+        print(f"❌ Error generating schedule: {e}")
+        return
+        
+    # 5. Validate Schedule
+    print("\n🔍 Validating combined schedule...")
+    validation = validate_schedule(schedule_text, user_tasks=[task1, task2])
+    
+    print(f"📊 Validation Status: {validation['status'].upper()}")
+    if validation['issues']:
+        print("⚠️ Issues Found:")
+        for i, issue in enumerate(validation['issues'], 1):
+            print(f"   {i}. {issue}")
+    else:
+        print("✅ All tasks for both pets were correctly included!")
+    
+    print("\n" + "=" * 70)
+    print("✅ MULTI-PET DEMO COMPLETE")
+    print("=" * 70)
+
+def run_reset_demo():
+    print("\n--- 🔄 PAWPAL RESET DATA DEMO ---")
+    
+    # Create some dummy files to delete
+    print("Simulating PDF uploads...")
+    save_uploaded_pdf("demo_reset_1.pdf", b"Content 1")
+    save_uploaded_pdf("demo_reset_2.pdf", b"Content 2")
+    
+    data_dir = os.path.join(os.path.dirname(__file__), "data")
+    files_before = os.listdir(data_dir) if os.path.exists(data_dir) else []
+    print(f"Files in data folder before reset: {files_before}")
+    
+    print("\nExecuting Reset (clear_data_directory)...")
+    deleted_count = clear_data_directory()
+    
+    files_after = os.listdir(data_dir) if os.path.exists(data_dir) else []
+    print(f"Successfully deleted {deleted_count} files.")
+    print(f"Files in data folder after reset: {files_after}")
+    print("=" * 35)
+
 if __name__ == "__main__":
     import sys
     
@@ -833,7 +924,12 @@ if __name__ == "__main__":
             run_schedule_generation_examples()
         elif sys.argv[1] == "completion":
             run_task_completion_demo()
-            print("Usage: python main.py [upload|validate|validate_tasks|validate_conflicts|rag_basic|rag_tasks|constraints|playground|schedule|completion]")
+        elif sys.argv[1] == "multi_pet":
+            run_multi_pet_demo()
+        elif sys.argv[1] == "reset":
+            run_reset_demo()
+        else:
+            print("Usage: python main.py [upload|validate|validate_tasks|validate_conflicts|rag_basic|rag_tasks|constraints|playground|schedule|completion|multi_pet|reset]")
             print("  upload             - Run demo simulating user PDF upload to data folder")
             print("  validate           - Run schedule validation demo")
             print("  validate_tasks     - Run demo showing validation catching dropped user tasks")
@@ -844,6 +940,8 @@ if __name__ == "__main__":
             print("  playground         - Run the merged RAG playground demos")
             print("  schedule           - Run schedule generation examples")
             print("  completion         - Run demo showing task completion and automatic recurrence")
+            print("  multi_pet          - Run comprehensive multi-pet pipeline demo (RAG + Validation)")
+            print("  reset              - Run demo showing how all app data (PDFs) are deleted")
             print("  (no args)          - Run basic test")
     else:
         run_test()

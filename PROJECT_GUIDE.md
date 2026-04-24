@@ -28,7 +28,7 @@ Represents the user of the system.
 
 ### `Pet`
 Represents a pet belonging to an owner.
-- **Attributes**: `pet_id`, `name`, `species`, `breed`, `age`, `medical_notes`.
+- **Attributes**: `pet_id`, `name`, `species`, `breed`, `age`.
 - **Key Methods**: `add_task()`, `get_tasks()`, `update_info()`.
 
 ### `Task`

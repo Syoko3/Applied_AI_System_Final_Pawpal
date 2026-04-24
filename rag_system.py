@@ -42,6 +42,28 @@ def save_uploaded_pdf(file_name: str, file_buffer: bytes) -> str:
         
     return save_path
 
+def clear_data_directory() -> int:
+    """
+    Deletes all files in the data/ directory.
+    
+    Returns:
+        The number of files deleted.
+    """
+    data_dir = os.path.join(os.path.dirname(__file__), "data")
+    if not os.path.exists(data_dir):
+        return 0
+        
+    deleted_count = 0
+    for file_name in os.listdir(data_dir):
+        file_path = os.path.join(data_dir, file_name)
+        try:
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+                deleted_count += 1
+        except Exception:
+            continue
+    return deleted_count
+
 def extract_text_from_pdf(pdf_path: str) -> str:
     """
     Extract text from a PDF file.
@@ -345,7 +367,7 @@ class RAGSystem:
         self.embeddings = []
         self.use_faiss = use_faiss
     
-    def load_pdf(self, pdf_path: str, chunk_size: int = 512, overlap: int = 50) -> None:
+    def load_pdf(self, pdf_path: str, chunk_size: int = 512, overlap: int = 50, append: bool = False) -> None:
         """
         Load and process a PDF file.
         
@@ -353,14 +375,24 @@ class RAGSystem:
             pdf_path: Path to the PDF file
             chunk_size: Size of text chunks
             overlap: Overlap between chunks
+            append: If True, add new chunks to existing ones. If False, replace existing chunks.
         """
         text = extract_text_from_pdf(pdf_path)
-        self.chunks = chunk_text(text, chunk_size=chunk_size, overlap=overlap)
-        print(f"Extracted {len(self.chunks)} chunks from PDF")
+        new_chunks = chunk_text(text, chunk_size=chunk_size, overlap=overlap)
+        print(f"Extracted {len(new_chunks)} chunks from PDF")
         
         # Generate embeddings
-        self.embeddings = generate_embeddings(self.chunks)
-        print(f"Generated embeddings for {len(self.embeddings)} chunks")
+        new_embeddings = generate_embeddings(new_chunks)
+        print(f"Generated embeddings for {len(new_embeddings)} chunks")
+        
+        if append:
+            self.chunks.extend(new_chunks)
+            self.embeddings.extend(new_embeddings)
+            print(f"Appended to RAG index. Total chunks: {len(self.chunks)}")
+        else:
+            self.chunks = new_chunks
+            self.embeddings = new_embeddings
+            print(f"Replaced RAG index. Total chunks: {len(self.chunks)}")
     
     def query(self, query_text: str, top_k: int = 5) -> List[Tuple[str, float]]:
         """
