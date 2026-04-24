@@ -14,8 +14,9 @@ from pawpal_system import (
     Task,
     generate_schedule_with_context,
     validate_schedule,
+    parse_ai_tasks
 )
-from rag_system import save_uploaded_pdf, search_similar_chunks, RAGSystem
+from rag_system import save_uploaded_pdf, search_similar_chunks, clear_data_directory, RAGSystem
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -443,8 +444,6 @@ def test_multi_pdf_loading():
 
 # Tests that the new robust parser handles various formatting and pet headers.
 def test_robust_parser():
-    from pawpal_system import parse_ai_tasks
-    
     schedule_text = """
     ### Buddy's Schedule
     08:00 AM - Morning feeding (Duration: 15 min, Priority: CRITICAL)
@@ -473,9 +472,6 @@ def test_robust_parser():
 
 # Tests that resetting the app data correctly clears the data directory.
 def test_reset_data():
-    from rag_system import clear_data_directory, save_uploaded_pdf
-    import os
-    
     # Create a dummy file
     dummy_name = "test_reset.pdf"
     dummy_content = b"PDF content"
