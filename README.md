@@ -50,6 +50,7 @@ python main.py playground           # Run the merged RAG playground demos
 python main.py schedule             # Run schedule generation examples
 python main.py completion           # Run demo showing task completion and automatic recurrence
 python main.py multi_pet            # Run comprehensive multi-pet pipeline demo (RAG + Validation)
+python main.py reset                # Run demo showing how all app data (PDFs) are deleted
 ```
 
 Testing the app:

@@ -500,12 +500,13 @@ class Scheduler:
 # ---------------------------------------------------------------------------
 
 GEMINI_MODELS = (
+    "gemini-3.1-flash-lite-preview",
+    "gemini-3.1-flash",
+    "gemini-3.0-flash-lite",
+    "gemini-3.0-flash",
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-pro",
-    "gemini-1.5-flash-lite"
+    "gemini-2.0-flash"
 )
 
 def _get_gemini_client() -> genai.Client:
@@ -571,6 +572,7 @@ CRITICAL INSTRUCTIONS:
 4. PRIORITY & DURATION: You MUST explicitly include the duration and priority for EVERY task.
 5. PER-TASK RATIONALE: For EACH task in the schedule, you MUST provide a brief rationale (1 sentence) immediately following the task line.
 6. 24-HOUR FORMAT: All times MUST be in 24-hour format (HH:MM). Do NOT use AM/PM.
+7. TRACKING AWARENESS: This schedule is used for an interactive task tracking system. You MUST include every single task—both your suggestions and the owner's manual requests—in the schedule blocks so they can be tracked.
 
 USER REQUEST:
 {user_input}
@@ -581,16 +583,13 @@ PET CARE CONTEXT:
 Please provide your response in this exact format:
 
 SCHEDULE:
-[For each pet, provide their individual hourly schedule. 
-Format: 
 ### [Pet Name]'s Schedule
 HH:MM - Task Title (Duration: X min, Priority: PriorityName)
-* Rationale: [Brief reason why this task is scheduled here based on context]
-...
-]
+* Rationale: Brief reason why this task is scheduled here based on context
+(Repeat for every task)
 
 EXPLANATION:
-[Provide a concise overview of the overall plan]
+Provide a concise overview of the overall plan and how it meets the pet's needs.
 """
 
     response_text = _generate_with_retry(prompt)
@@ -770,41 +769,22 @@ ISSUES TO FIX:
 PET TYPE: {pet_type}
 PET CONTEXT: {context if context else "No additional context provided"}
 
-Please provide an IMPROVED schedule that:
-1. Addresses all the identified issues above
-2. Includes specific times (e.g., 8:00 AM, 12:30 PM)
-3. Includes duration for each activity
-4. Maintains proper balance between feeding, exercise, and rest
-5. Is realistic and achievable for a {pet_type}
-6. Includes brief explanations for why activities are scheduled at those times
+Please provide a complete, IMPROVED response in this exact format:
 
-Format your response as:
+SCHEDULE:
+[For each pet, provide their individual hourly schedule. 
+Format: 
+### [Pet Name]'s Schedule
+HH:MM - Task Title (Duration: X min, Priority: PriorityName)
+* Rationale: Brief reason why this task is scheduled here based on context
+(Repeat for every task, including the owner's manual requests)
 
-IMPROVED SCHEDULE:
-[Provide the improved daily schedule with times and durations]
-
-KEY IMPROVEMENTS:
-- [List 3-5 specific improvements made]
-
-RATIONALE:
-[Explain why this schedule is better for a {pet_type}]
+EXPLANATION:
+Provide a concise overview of the improvements made and how they address the initial issues.
 """
 
-    improved_schedule = _generate_with_retry(prompt)
-    
-    # Format with header
-    separator = "=" * 70
-    formatted_response = f"""
-{separator}
-IMPROVED PET SCHEDULE (Based on Validation Feedback)
-{separator}
-
-{improved_schedule}
-
-{separator}
-"""
-    
-    return formatted_response
+    improved_response = _generate_with_retry(prompt)
+    return improved_response
 
 def validate_and_fix_schedule(
     schedule_text: str,
@@ -855,18 +835,21 @@ def parse_ai_tasks(schedule_text: str) -> list[Task]:
     
     current_pet_name = "Unknown"
     
-    # Flexible pattern for tasks: Time - [Pet] Title (Duration, Priority)
-    # Handles optional bolding (**), varied separators, and metadata
+    # Flexible pattern for tasks: Time - Title (Metadata)
+    # Handles 24h/12h time, time ranges, bolding, and various priority formats
     task_pattern = re.compile(
-        r'^\s*(?:\*+|-|•)?\s*(?:\*\*)?(?P<time>(?:[01]?\d|2[0-3]):[0-5]\d\s*(?:AM|PM|am|pm)?)(?:\*\*)?\s*[-:]\s*' 
+        r'^\s*(?:\*+|-|•)?\s*(?:\*\*)?(?P<time>(?:[01]?\d|2[0-3]):[0-5]\d\s*(?:AM|PM|am|pm)?)(?:\*\*)?'
+        r'(?:\s*-\s*(?:[01]?\d|2[0-3]):[0-5]\d\s*(?:AM|PM|am|pm)?)?\s*[-:]\s*' # Optional end time range
         r'(?:\*\*)?(?P<title>.+?)(?:\*\*)?'                                                        
         r'(?:\s*\(?Duration:\s*(?P<duration>\d+)\s*min(?:ute)?s?,?\s*'           
-        r'Priority:\s*(?P<priority>\w+)\)?)?\s*$',                                
+        r'(?:Priority:\s*)?(?P<priority>\w+)\)?)?'                                # Matches "Priority: HIGH" or just "HIGH"
+        r'(?:\s*\[(?P<priority_alt>\w+)\])?'                                     # Matches "[HIGH]"
+        r'\s*$',                                
         re.IGNORECASE
     )
     
-    # Pattern for pet headers like ### Buddy's Schedule or **Mochi's Schedule**
-    pet_header_pattern = re.compile(r'^(?:#+|-|\*+)\s*(.+?)(?:\'s)?\s+Schedule', re.IGNORECASE)
+    # Pattern for pet headers like ### Buddy's Schedule (Dog) or **Mochi's Schedule**
+    pet_header_pattern = re.compile(r'^(?:#+|-|\*+)\s*(.+?)(?:\'s)?\s+Schedule.*$', re.IGNORECASE)
 
     for line in lines:
         line = line.strip()
@@ -893,7 +876,7 @@ def parse_ai_tasks(schedule_text: str) -> list[Task]:
                 duration_raw = task_match.group('duration')
                 duration_val = int(duration_raw) if duration_raw else 30
                 
-                priority_raw = task_match.group('priority')
+                priority_raw = task_match.group('priority') or task_match.group('priority_alt')
                 priority_str = priority_raw.strip().upper() if priority_raw else "MEDIUM"
                 
                 # Map priority string to Priority enum

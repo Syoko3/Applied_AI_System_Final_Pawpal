@@ -427,17 +427,33 @@ if run_pipeline:
             st.error(format_pipeline_error(error))
     
 if st.session_state.schedule_text:
+    # --- UI DISPLAY ---
     st.divider()
-    st.subheader("Results")
+    
+    # Check if this is an 'Improved' schedule and show a badge if so
+    if "IMPROVED PET SCHEDULE" in st.session_state.schedule_text:
+        st.info("✨ AI has automatically optimized this schedule based on pet care best practices.")
     
     result_col1, result_col2 = st.columns(2)
+    
+    # Clean the schedule text for display (remove decorative headers)
+    display_schedule = st.session_state.schedule_only
+    if "IMPROVED PET SCHEDULE" in display_schedule:
+        # Strip the separator and decorative title
+        lines = display_schedule.split('\n')
+        cleaned_lines = [l for l in lines if "=" not in l and "IMPROVED" not in l.upper()]
+        display_schedule = "\n".join(cleaned_lines).strip()
+
     with result_col1:
-        st.markdown("### Schedule")
-        st.markdown(st.session_state.schedule_only)
+        st.markdown("### 🐾 Daily Schedule")
+        st.markdown(display_schedule)
     
     with result_col2:
-        st.markdown("### Explanation")
-        st.write(st.session_state.explanation_only)
+        st.markdown("### 💡 Care Plan Overview")
+        if st.session_state.explanation_only and "No separate" not in st.session_state.explanation_only:
+            st.write(st.session_state.explanation_only)
+        else:
+            st.caption("The AI has optimized your schedule. See the specific rationales under each task below.")
     
     st.markdown("### Validation Result")
     validation = st.session_state.validation_result
@@ -466,14 +482,24 @@ if st.session_state.schedule_text:
     
     # Combine manual and AI tasks for unified tracking
     all_trackable_tasks = []
-    if st.session_state.tasks:
-        all_trackable_tasks.extend(st.session_state.tasks)
+    
+    # Track which manual tasks the AI successfully "captured" in its schedule
+    ai_captured_titles = [t.title.lower() for t in st.session_state.ai_tasks]
+    
+    # 1. Add AI tasks first (they have the most context/rationale)
     if st.session_state.ai_tasks:
         all_trackable_tasks.extend(st.session_state.ai_tasks)
         
+    # 2. Add manual tasks only if the AI missed them
+    if st.session_state.tasks:
+        for m_task in st.session_state.tasks:
+            if m_task.title.lower() not in ai_captured_titles:
+                all_trackable_tasks.append(m_task)
+        
     if all_trackable_tasks:
         st.divider()
-        st.subheader("Task Tracking (AI Generated Schedule)")
+        st.subheader("Task Tracking (Interactive Schedule)")
+        st.caption(f"Status: Found {len(st.session_state.ai_tasks)} AI-recommended activities and {len(st.session_state.tasks)} user-requested tasks.")
         
         filter_col, pet_filter_col = st.columns([1, 2])
         with filter_col:
