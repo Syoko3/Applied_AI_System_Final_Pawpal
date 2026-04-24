@@ -30,7 +30,6 @@ def sample_task():
         description="Morning feeding",
         duration=10,
         priority=Priority.HIGH,
-        frequency="daily",
         preferred_time="morning",
     )
 
@@ -66,8 +65,8 @@ def test_filter_tasks_by_completion_status():
     pet = Pet("P1", "Buddy", "Canine", "Labrador", 5)
     owner.add_pet(pet)
 
-    incomplete_task = Task("T1", "Morning walk", "Exercise", 20, Priority.HIGH, "daily", "morning")
-    complete_task = Task("T2", "Give meds", "Medicine", 5, Priority.CRITICAL, "daily", "morning")
+    incomplete_task = Task("T1", "Morning walk", "Exercise", 20, Priority.HIGH, "morning")
+    complete_task = Task("T2", "Give meds", "Medicine", 5, Priority.CRITICAL, "morning")
     complete_task.mark_complete()
 
     pet.add_task(incomplete_task)
@@ -88,8 +87,8 @@ def test_filter_tasks_by_pet_name():
     owner.add_pet(dog)
     owner.add_pet(cat)
 
-    dog_task = Task("T1", "Morning walk", "Exercise", 20, Priority.HIGH, "daily", "morning")
-    cat_task = Task("T2", "Clean litter box", "Care", 10, Priority.MEDIUM, "daily", "evening")
+    dog_task = Task("T1", "Morning walk", "Exercise", 20, Priority.HIGH, "morning")
+    cat_task = Task("T2", "Clean litter box", "Care", 10, Priority.MEDIUM, "evening")
     dog.add_task(dog_task)
     cat.add_task(cat_task)
 
@@ -99,20 +98,6 @@ def test_filter_tasks_by_pet_name():
 
     assert filtered == [(cat, cat_task)]
 
-# Tests that completing a daily task automatically generates an identical task for tomorrow.
-def test_mark_complete_creates_next_daily_task(sample_pet, sample_task):
-    """Completing a daily task should create a new incomplete task due tomorrow."""
-    sample_pet.add_task(sample_task)
-
-    next_task = sample_task.mark_complete()
-
-    assert sample_task.is_completed is True
-    assert next_task is not None
-    assert next_task in sample_pet.tasks
-    assert next_task.is_completed is False
-    assert next_task.title == sample_task.title
-    assert next_task.due_date == date.today() + timedelta(days=1)
-
 # Tests that the scheduler correctly orders tasks based on their assigned time slots.
 def test_sort_by_time_returns_tasks_in_chronological_order():
     """Scheduler.sort_by_time() should order tasks from earliest to latest HH:MM."""
@@ -120,35 +105,14 @@ def test_sort_by_time_returns_tasks_in_chronological_order():
     pet = Pet("P1", "Buddy", "Canine", "Labrador", 5)
     owner.add_pet(pet)
 
-    midday_task = Task("T1", "Lunch", "Midday meal", 15, Priority.MEDIUM, "daily", "afternoon", "12:30")
-    early_task = Task("T2", "Breakfast", "Morning meal", 10, Priority.HIGH, "daily", "morning", "07:15")
-    late_task = Task("T3", "Evening walk", "Night exercise", 20, Priority.LOW, "daily", "evening", "18:45")
+    midday_task = Task("T1", "Lunch", "Midday meal", 15, Priority.MEDIUM, "afternoon", "12:30")
+    early_task = Task("T2", "Breakfast", "Morning meal", 10, Priority.HIGH, "morning", "07:15")
+    late_task = Task("T3", "Evening walk", "Night exercise", 20, Priority.LOW, "evening", "18:45")
 
     scheduler = Scheduler("S1", owner)
     sorted_tasks = scheduler.sort_by_time([midday_task, late_task, early_task])
 
     assert sorted_tasks == [early_task, midday_task, late_task]
-
-# Tests that completing a weekly task successfully schedules the next occurrence seven days later.
-def test_mark_complete_creates_next_weekly_task(sample_pet):
-    """Completing a weekly task should create a new incomplete task due next week."""
-    weekly_task = Task(
-        task_id="T2",
-        title="Bath time",
-        description="Weekly grooming",
-        duration=30,
-        priority=Priority.MEDIUM,
-        frequency="weekly",
-        preferred_time="evening",
-    )
-    sample_pet.add_task(weekly_task)
-
-    next_task = weekly_task.mark_complete()
-
-    assert weekly_task.is_completed is True
-    assert next_task is not None
-    assert next_task in sample_pet.tasks
-    assert next_task.due_date == date.today() + timedelta(weeks=1)
 
 # Tests that scheduling concurrent tasks for different pets properly triggers a conflict warning.
 def test_detect_time_conflicts_returns_warning():
@@ -159,8 +123,8 @@ def test_detect_time_conflicts_returns_warning():
     owner.add_pet(dog)
     owner.add_pet(cat)
 
-    dog_task = Task("T1", "Morning walk", "Exercise", 20, Priority.HIGH, "daily", "morning", "08:00")
-    cat_task = Task("T2", "Breakfast", "Feeding", 10, Priority.MEDIUM, "daily", "morning", "08:00")
+    dog_task = Task("T1", "Morning walk", "Exercise", 20, Priority.HIGH, "morning", "08:00")
+    cat_task = Task("T2", "Breakfast", "Feeding", 10, Priority.MEDIUM, "morning", "08:00")
     dog.add_task(dog_task)
     cat.add_task(cat_task)
 
@@ -179,8 +143,8 @@ def test_detect_time_conflicts_flags_duplicate_times():
     pet = Pet("P1", "Buddy", "Canine", "Labrador", 5)
     owner.add_pet(pet)
 
-    breakfast = Task("T1", "Breakfast", "Morning feeding", 10, Priority.HIGH, "daily", "morning", "08:30")
-    meds = Task("T2", "Medicine", "Morning meds", 5, Priority.CRITICAL, "daily", "morning", "08:30")
+    breakfast = Task("T1", "Breakfast", "Morning feeding", 10, Priority.HIGH, "morning", "08:30")
+    meds = Task("T2", "Medicine", "Morning meds", 5, Priority.CRITICAL, "morning", "08:30")
     pet.add_task(breakfast)
     pet.add_task(meds)
 
@@ -279,7 +243,7 @@ def test_validation_detects_missing_user_tasks():
     12:00 PM - Lunch
     EXPLANATION: A short schedule.
     """
-    task = Task("T1", "Vet Appointment", "Checkup", 60, Priority.CRITICAL, "once", "morning")
+    task = Task("T1", "Vet Appointment", "Checkup", 60, Priority.CRITICAL, "morning")
     
     result = validate_schedule(incomplete_schedule, user_tasks=[task])
     
@@ -333,7 +297,7 @@ def test_rag_with_added_tasks():
     pet = Pet("P1", "Max", "Dog", "Labrador", 3)
     owner.add_pet(pet)
     
-    task1 = Task("T1", "Vet Appointment", "Checkup", 60, Priority.CRITICAL, "once", "morning", "09:00")
+    task1 = Task("T1", "Vet Appointment", "Checkup", 60, Priority.CRITICAL, "morning", "09:00")
     pet.add_task(task1)
     
     profile_context = f"Owner is available between {owner.daily_available_time_range}."
@@ -374,9 +338,9 @@ def test_scheduler_apply_constraints_drops_excess_tasks():
     pet = Pet("P1", "Max", "Dog", "Lab", 3)
     owner.add_pet(pet)
     
-    t1 = Task("T1", "Task 1", "D1", 60, Priority.CRITICAL, "daily", "morning")
-    t2 = Task("T2", "Task 2", "D2", 60, Priority.HIGH, "daily", "morning")
-    t3 = Task("T3", "Task 3", "D3", 30, Priority.LOW, "daily", "morning")
+    t1 = Task("T1", "Task 1", "D1", 60, Priority.CRITICAL, "morning")
+    t2 = Task("T2", "Task 2", "D2", 60, Priority.HIGH, "morning")
+    t3 = Task("T3", "Task 3", "D3", 30, Priority.LOW, "morning")
     pet.add_task(t3)
     pet.add_task(t1)
     pet.add_task(t2)

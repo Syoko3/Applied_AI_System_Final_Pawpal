@@ -134,7 +134,6 @@ class Schedule:
                 f"     {badge} {BOLD}{st.task.title}{RESET}",
                 f"     🐶 Pet      : {st.pet.name}",
                 f"     ⏱  Duration : {st.task.duration} min",
-                f"     🔁 Frequency: {st.task.frequency.capitalize()}",
                 f"     💡 Note     : {st.rationale_note}",
                 f"{'─' * WIDTH}",
             ]
@@ -148,56 +147,19 @@ class Task:
     description: str
     duration: int              # minutes
     priority: Priority
-    frequency: str             # e.g. "daily", "weekly"
     preferred_time: str        # e.g. "morning", "evening"
     time: str = "08:00"        # scheduled or target time in HH:MM format
     due_date: date = field(default_factory=date.today)
     is_completed: bool = False
     pet: Optional[Pet] = None
 
-    def mark_complete(self) -> Optional[Task]:
-        """Mark this task complete and return the next recurring task if one is created.
-
-        Daily tasks create a new copy due tomorrow, weekly tasks create a new copy
-        due one week from today, and non-recurring tasks return None.
-        """
-        if self.is_completed:
-            return None
-
+    def mark_complete(self) -> None:
+        """Mark this task complete."""
         self.is_completed = True
-        return self.create_next_occurrence()
 
     def mark_incomplete(self) -> None:
         """Reset is_completed to False to reopen this task."""
         self.is_completed = False
-
-    def create_next_occurrence(self) -> Optional[Task]:
-        """Build the next task occurrence for recurring tasks and attach it to the same pet."""
-        recurrence_offsets = {
-            "daily": timedelta(days=1),
-            "weekly": timedelta(weeks=1),
-        }
-
-        offset = recurrence_offsets.get(self.frequency.lower())
-        if offset is None:
-            return None
-
-        next_task = Task(
-            task_id=str(uuid.uuid4())[:8],
-            title=self.title,
-            description=self.description,
-            duration=self.duration,
-            priority=self.priority,
-            frequency=self.frequency,
-            preferred_time=self.preferred_time,
-            time=self.time,
-            due_date=date.today() + offset,
-        )
-
-        if self.pet is not None:
-            self.pet.add_task(next_task)
-
-        return next_task
 
     def edit(self, field: str, value: object) -> None:
         """Update a single task field by name, raising AttributeError if unknown."""
@@ -601,7 +563,7 @@ generate a structured daily pet schedule with a clear explanation.
 CRITICAL INSTRUCTIONS:
 1. TIME CONSTRAINTS: You must ONLY schedule tasks within the Owner's available time range specified in the user request. Do not schedule any activities outside of these hours.
 2. SPECIFIC TASKS: You must include ALL manually requested tasks at their exact requested times, durations, and priorities. Build the rest of the schedule around these fixed tasks.
-3. PRIORITY & FREQUENCY: For any flexible tasks, sort and place them strictly based on their priority (CRITICAL/HIGH before LOW). Additionally, you MUST explicitly mark the frequency of EVERY task in the output (e.g., "[Daily]", "[Weekly]", "[Once]").
+3. PRIORITY & DURATION: For any flexible tasks, sort and place them strictly based on their priority (CRITICAL/HIGH before LOW). You MUST explicitly include the duration and priority for EVERY task in the output using the format: "HH:MM AM/PM - Task Title (Duration: X min, Priority: Y)".
 
 USER REQUEST:
 {user_input}
@@ -612,7 +574,7 @@ PET CARE CONTEXT:
 Please provide your response in this exact format:
 
 SCHEDULE:
-[Generate a detailed hourly schedule for the pet(s) that strictly adheres to the available time range and includes all specific tasks]
+[Generate a detailed hourly schedule for the pet(s) that strictly adheres to the available time range. Format each line as: HH:MM AM/PM - Task Title (Duration: X min, Priority: PriorityName)]
 
 EXPLANATION:
 [Provide a concise explanation of 2-3 sentences on how the schedule aligns with the provided context and honors the time constraints]

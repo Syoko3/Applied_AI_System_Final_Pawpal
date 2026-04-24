@@ -159,11 +159,11 @@ def run_test():
     owner.add_pet(cat)
 
     # Add tasks out of order to demonstrate time sorting.
-    task1 = Task("T1", "Feed the dog", "Care", 10, Priority.HIGH, "daily", "morning", "08:30")
-    task2 = Task("T2", "Play with the cat", "Playing", 30, Priority.MEDIUM, "weekly", "morning", "08:30")
-    task3 = Task("T3", "Take the dog for a walk", "Exercise", 60, Priority.HIGH, "weekly", "afternoon", "14:00")
-    task4 = Task("T4", "Brush the cat", "Grooming", 15, Priority.LOW, "weekly", "evening", "21:00")
-    task5 = Task("T5", "Give the dog medicine", "Medicine", 5, Priority.CRITICAL, "daily", "morning", "07:45")
+    task1 = Task("T1", "Feed the dog", "Care", 10, Priority.HIGH, "morning", "08:30")
+    task2 = Task("T2", "Play with the cat", "Playing", 30, Priority.MEDIUM, "morning", "08:30")
+    task3 = Task("T3", "Take the dog for a walk", "Exercise", 60, Priority.HIGH, "afternoon", "14:00")
+    task4 = Task("T4", "Brush the cat", "Grooming", 15, Priority.LOW, "evening", "21:00")
+    task5 = Task("T5", "Give the dog medicine", "Medicine", 5, Priority.CRITICAL, "morning", "07:45")
     task4.mark_complete()
 
     dog.add_task(task1)
@@ -350,7 +350,7 @@ def run_validation_with_user_tasks_demo():
     print("🐾 PawPal User Task Validation Demo")
     print("=" * 70)
     
-    task1 = Task("T1", "Vet Appointment", "Checkup", 60, Priority.CRITICAL, "once", "morning")
+    task1 = Task("T1", "Vet Appointment", "Checkup", 60, Priority.CRITICAL, "morning")
     
     generated_schedule = """
     SCHEDULE:
@@ -677,8 +677,8 @@ def run_rag_with_tasks_demo():
     owner.add_pet(pet)
     
     # 2. Add custom tasks
-    task1 = Task(str(uuid.uuid4())[:8], "Vet Appointment", "Annual checkup", 60, Priority.CRITICAL, "once", "morning", "09:00")
-    task2 = Task(str(uuid.uuid4())[:8], "Training Session", "Agility training", 30, Priority.HIGH, "daily", "afternoon", "15:00")
+    task1 = Task(str(uuid.uuid4())[:8], "Vet Appointment", "Annual checkup", 60, Priority.CRITICAL, "morning", "09:00")
+    task2 = Task(str(uuid.uuid4())[:8], "Training Session", "Agility training", 30, Priority.HIGH, "afternoon", "15:00")
     pet.add_task(task1)
     pet.add_task(task2)
     
@@ -691,7 +691,7 @@ def run_rag_with_tasks_demo():
     enhanced_request = f"{profile_context}\n\nRequest: {user_request}"
     
     manual_tasks_str = "\n".join([
-        f"- {t.title} at {t.time} (Duration: {t.duration} min, Priority: {t.priority.name}, Frequency: {t.frequency})" 
+        f"- {t.title} at {t.time} (Duration: {t.duration} min, Priority: {t.priority.name})" 
         for t in pet.tasks
     ])
     enhanced_request += f"\n\nIn addition to the description above, please specifically include these tasks:\n{manual_tasks_str}"
@@ -728,9 +728,9 @@ def run_time_constraints_demo():
     print(f"Owner {owner.name} has time range: {owner.daily_available_time_range} (Budget: 120 min)")
     
     # Total task duration: 60 + 60 + 30 = 150 minutes (Exceeds budget by 30 mins)
-    t1 = Task(str(uuid.uuid4())[:8], "Morning Run", "Exercise", 60, Priority.HIGH, "daily", "morning", "08:00")
-    t2 = Task(str(uuid.uuid4())[:8], "Vet Visit", "Health", 60, Priority.CRITICAL, "once", "morning", "09:00")
-    t3 = Task(str(uuid.uuid4())[:8], "Grooming", "Care", 30, Priority.LOW, "weekly", "morning", "10:00")
+    t1 = Task(str(uuid.uuid4())[:8], "Morning Run", "Exercise", 60, Priority.HIGH, "morning", "08:00")
+    t2 = Task(str(uuid.uuid4())[:8], "Vet Visit", "Health", 60, Priority.CRITICAL, "morning", "09:00")
+    t3 = Task(str(uuid.uuid4())[:8], "Grooming", "Care", 30, Priority.LOW, "morning", "10:00")
     
     pet.add_task(t3)
     pet.add_task(t1)
@@ -777,34 +777,28 @@ def run_schedule_generation_examples():
     result_2 = generate_schedule_with_context(user_input_2, context_2)
     print(result_2)
 
-# Demonstrates marking a task as complete and how it automatically schedules the next occurrence for recurring tasks.
+# Demonstrates marking a task as complete.
 def run_task_completion_demo():
-    """Demo task completion and recurrence."""
+    """Demo task completion."""
     print("\n" + "=" * 70)
-    print("🐾 PawPal Task Completion & Recurrence Demo")
+    print("🐾 PawPal Task Completion Demo")
     print("=" * 70)
     
     pet = Pet(str(uuid.uuid4()), "Max", "Dog", "Labrador", 3)
     
-    task1 = Task("T1", "Morning Walk", "Exercise", 30, Priority.HIGH, "daily", "morning", "08:00")
+    task1 = Task("T1", "Morning Walk", "Exercise", 30, Priority.HIGH, "morning", "08:00")
     pet.add_task(task1)
     
     print("📋 Initial Task Status:")
     print(f"   Task: {task1.title}")
     print(f"   Completed: {task1.is_completed}")
-    print(f"   Frequency: {task1.frequency}")
     
     print("\n✅ User marks task as complete...")
-    next_task = task1.mark_complete()
+    task1.mark_complete()
     
     print("\n📋 Updated Task Status:")
-    print(f"   Original Task Completed: {task1.is_completed}")
-    
-    if next_task:
-        print("\n📅 Next Occurrence Automatically Created!")
-        print(f"   Title: {next_task.title}")
-        print(f"   Due Date: {next_task.due_date}")
-        print(f"   Completed: {next_task.is_completed}")
+    print(f"   Task: {task1.title}")
+    print(f"   Completed: {task1.is_completed}")
 
 if __name__ == "__main__":
     import sys

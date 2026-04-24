@@ -1,10 +1,10 @@
 import os
-import tempfile
+import re
 from pathlib import Path
 import uuid
 import streamlit as st
 from pawpal_system import generate_schedule_with_context, validate_schedule, Priority, Owner, Pet, Task
-from rag_system import extract_text_from_pdf, chunk_text_by_sentences, generate_embeddings, search_similar_chunks, save_uploaded_pdf
+from rag_system import extract_text_from_pdf, save_uploaded_pdf, RAGSystem
 
 try:
     from dotenv import load_dotenv
@@ -20,8 +20,7 @@ def ensure_session_state() -> None:
     defaults = {
         "pdf_name": None,
         "pdf_text": "",
-        "chunks": [],
-        "embeddings": [],
+        "rag_system": None,
         "retrieved_context": "",
         "schedule_text": "",
         "schedule_only": "",
@@ -35,11 +34,12 @@ def ensure_session_state() -> None:
         "pet_breed": "",
         "pet_age": 1,
         "tasks": [],
+        "ai_tasks": [],
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
 
-def process_uploaded_pdf(uploaded_file) -> tuple[str, list[str], list[list[float]]]:
+def process_uploaded_pdf(uploaded_file) -> tuple[str, RAGSystem]:
     # Save the uploaded file to the data folder permanently
     save_path = save_uploaded_pdf(uploaded_file.name, uploaded_file.getbuffer())
 
@@ -48,15 +48,16 @@ def process_uploaded_pdf(uploaded_file) -> tuple[str, list[str], list[list[float
     if not pdf_text.strip():
         raise ValueError("No readable text was extracted from the uploaded PDF.")
 
-    chunks = chunk_text_by_sentences(pdf_text, target_chunk_size=500)
-    if not chunks:
+    rag = RAGSystem()
+    rag.load_pdf(save_path, chunk_size=500, overlap=50)
+    
+    if not rag.chunks:
         raise ValueError("The PDF was processed, but no text chunks were created.")
 
-    embeddings = generate_embeddings(chunks)
-    return pdf_text, chunks, embeddings
+    return pdf_text, rag
 
-def retrieve_context(user_request: str, chunks: list[str], embeddings: list[list[float]], top_k: int = 3) -> str:
-    results = search_similar_chunks(user_request, chunks, embeddings, top_k=top_k)
+def retrieve_context(user_request: str, rag: RAGSystem, top_k: int = 3) -> str:
+    results = rag.query(user_request, top_k=top_k)
     context_parts = [chunk for chunk, _score in results]
     return "\n\n".join(context_parts)
 
@@ -98,12 +99,51 @@ def split_schedule_response(response_text: str) -> tuple[str, str]:
 
     return response_text.strip(), "No separate explanation section was found in the model output."
 
+def parse_ai_tasks(schedule_text: str) -> list[Task]:
+    """Parse the text schedule into Task objects."""
+    parsed_tasks = []
+    lines = schedule_text.strip().split('\n')
+    
+    for line in lines:
+        line = line.strip()
+        # Look for time, title, duration, and priority
+        # Format: HH:MM AM/PM - Task Title (Duration: X min, Priority: Y)
+        pattern = r'^((?:[01]?[0-9]|2[0-3]):[0-5][0-9]\s*(?:AM|PM|am|pm)?)\s*[-:]\s*(.+?)\s*\(Duration:\s*(\d+)\s*min,\s*Priority:\s*(\w+)\)$'
+        match = re.match(pattern, line, re.IGNORECASE)
+        
+        if match:
+            time_str = match.group(1).strip()
+            title_str = match.group(2).strip()
+            duration_val = int(match.group(3))
+            priority_str = match.group(4).strip().upper()
+            
+            # Map priority string to Priority enum
+            priority_obj = Priority.MEDIUM
+            try:
+                priority_obj = Priority[priority_str]
+            except KeyError:
+                pass
+            
+            new_task = Task(
+                task_id=str(uuid.uuid4())[:8],
+                title=title_str,
+                description="",
+                duration=duration_val,
+                priority=priority_obj,
+                preferred_time="any",
+                time=time_str
+            )
+            parsed_tasks.append(new_task)
+            
+    return parsed_tasks
+
 def reset_pipeline_outputs() -> None:
     st.session_state.retrieved_context = ""
     st.session_state.schedule_text = ""
     st.session_state.schedule_only = ""
     st.session_state.explanation_only = ""
     st.session_state.validation_result = None
+    st.session_state.ai_tasks = []
 
 ensure_session_state()
 
@@ -153,23 +193,21 @@ if uploaded_pdf is not None:
         reset_pipeline_outputs()
         with st.spinner("Processing PDF and generating embeddings..."):
             try:
-                pdf_text, chunks, embeddings = process_uploaded_pdf(uploaded_pdf)
+                pdf_text, rag = process_uploaded_pdf(uploaded_pdf)
             except Exception as error:
                 st.session_state.pdf_name = None
                 st.session_state.pdf_text = ""
-                st.session_state.chunks = []
-                st.session_state.embeddings = []
+                st.session_state.rag_system = None
                 st.error(format_pipeline_error(error))
             else:
                 st.session_state.pdf_name = uploaded_pdf.name
                 st.session_state.pdf_text = pdf_text
-                st.session_state.chunks = chunks
-                st.session_state.embeddings = embeddings
-                st.success(f"Processed `{uploaded_pdf.name}` into {len(chunks)} chunks.")
+                st.session_state.rag_system = rag
+                st.success(f"Processed `{uploaded_pdf.name}` into {len(rag.chunks)} chunks.")
 
-if st.session_state.chunks:
+if st.session_state.rag_system and st.session_state.rag_system.chunks:
     info_col1, info_col2 = st.columns(2)
-    info_col1.metric("Chunks", len(st.session_state.chunks))
+    info_col1.metric("Chunks", len(st.session_state.rag_system.chunks))
     info_col2.metric("Characters Extracted", len(st.session_state.pdf_text))
 
     with st.expander("Preview extracted PDF text"):
@@ -189,15 +227,16 @@ st.divider()
 st.subheader("4. Add Specific Tasks (Optional)")
 st.caption("Provide manual tasks that the AI should incorporate into the final plan.")
 
-t_col1, t_col2, t_col3 = st.columns(3)
+t_col1, t_col2, t_col3, t_col4, t_col5 = st.columns(5)
 with t_col1:
     new_task_name = st.text_input("Task Name", placeholder="e.g., Vet Appointment")
-    new_priority = st.selectbox("Priority", [p.name for p in Priority], index=1)
 with t_col2:
-    new_task_time = st.time_input("Requested Time", value=None)
-    new_task_pref_time = st.selectbox("Preferred Time Slot", ["morning", "afternoon", "evening", "night"])
+    new_priority = st.selectbox("Priority", [p.name for p in Priority], index=1)
 with t_col3:
-    new_frequency = st.selectbox("Frequency", ["once", "daily", "weekly"])
+    new_task_time = st.time_input("Requested Time", value=None)
+with t_col4:
+    new_task_pref_time = st.selectbox("Preferred Time Slot", ["morning", "afternoon", "evening", "night"])
+with t_col5:
     new_task_duration = st.number_input("Duration (minutes)", min_value=5, max_value=1440, value=30, step=5)
 
 if st.button("Add Task to List"):
@@ -208,7 +247,6 @@ if st.button("Add Task to List"):
             description="",
             duration=new_task_duration,
             priority=Priority[new_priority],
-            frequency=new_frequency,
             preferred_time=new_task_pref_time,
             time=new_task_time.strftime("%H:%M") if new_task_time else "Anytime"
         )
@@ -224,15 +262,14 @@ if st.session_state.tasks:
             "Task": t.title,
             "Time": t.time,
             "Duration": f"{t.duration} min",
-            "Priority": t.priority.name,
-            "Frequency": t.frequency
+            "Priority": t.priority.name
         })
     st.table(task_display)
 
 run_pipeline = st.button("Run Full Pipeline", type="primary", use_container_width=True)
 
 if run_pipeline:
-    if not uploaded_pdf or not st.session_state.chunks:
+    if not uploaded_pdf or not st.session_state.rag_system:
         st.error("Upload and process a PDF before running the pipeline.")
     elif not st.session_state.owner_name.strip() or not st.session_state.pet_name.strip() or not st.session_state.species.strip():
         st.error("Please provide Owner Name, Pet Name, and Species.")
@@ -267,7 +304,7 @@ if run_pipeline:
                     current_pet.add_task(task_obj)
                 
                 manual_tasks_str = "\n".join([
-                    f"- {t.title} at {t.time} (Duration: {t.duration} min, Priority: {t.priority.name}, Frequency: {t.frequency})" 
+                    f"- {t.title} at {t.time} (Duration: {t.duration} min, Priority: {t.priority.name})" 
                     for t in current_pet.tasks
                 ])
                 enhanced_request += f"\n\nIn addition to the description above, please specifically include these tasks:\n{manual_tasks_str}"
@@ -275,8 +312,7 @@ if run_pipeline:
             with st.spinner("Retrieving relevant context from the PDF..."):
                 retrieved_context = retrieve_context(
                     user_request=enhanced_request,
-                    chunks=st.session_state.chunks,
-                    embeddings=st.session_state.embeddings,
+                    rag=st.session_state.rag_system,
                 )
 
             with st.spinner("Generating schedule from retrieved context..."):
@@ -290,6 +326,7 @@ if run_pipeline:
             st.session_state.schedule_only = schedule_only
             st.session_state.explanation_only = explanation_only
             st.session_state.validation_result = validation_result
+            st.session_state.ai_tasks = parse_ai_tasks(schedule_only)
         except Exception as error:
             st.error(format_pipeline_error(error))
 
@@ -322,35 +359,45 @@ if st.session_state.schedule_text:
         for issue in validation["issues"]:
             st.warning(issue)
 
-    if st.session_state.tasks:
+    st.markdown("#### Validation Checks Performed")
+    st.write([
+        "✔ Required pet care tasks included",
+        "✔ Schedule completeness checked",
+        "✔ User-defined tasks included",
+        "✔ Checked for time conflicts"
+    ])
+
+    trackable_tasks = st.session_state.ai_tasks if st.session_state.ai_tasks else st.session_state.tasks
+    if trackable_tasks:
         st.divider()
-        st.subheader("Task Tracking")
+        st.subheader("Task Tracking (AI Generated Schedule)")
         
         filter_col, _ = st.columns([1, 2])
         with filter_col:
             filter_option = st.radio("Filter:", ["All", "Pending", "Completed"], horizontal=True, label_visibility="collapsed")
             
-        st.caption("Mark your custom tasks as complete once you finish them:")
+        st.caption("Mark tasks as complete once you finish them:")
         
         # Apply filter
-        display_tasks = st.session_state.tasks
+        display_tasks = trackable_tasks
         if filter_option == "Pending":
-            display_tasks = [t for t in st.session_state.tasks if not t.is_completed]
+            display_tasks = [t for t in trackable_tasks if not t.is_completed]
         elif filter_option == "Completed":
-            display_tasks = [t for t in st.session_state.tasks if t.is_completed]
+            display_tasks = [t for t in trackable_tasks if t.is_completed]
             
         if not display_tasks:
             st.info(f"No {filter_option.lower()} tasks to show.")
         else:
             for task in display_tasks:
                 task.is_completed = st.checkbox(
-                    f"{task.title} at {task.time} ({task.duration} min, {task.priority.name} Priority)",
+                    f"{task.time} - {task.title}",
                     value=task.is_completed,
-                    key=f"chk_{task.task_id}"
+                    key=f"chk_ai_{task.task_id}"
                 )
 
-    with st.expander("Retrieved Context"):
-        st.text(st.session_state.retrieved_context)
+    st.subheader("Retrieved Context (Used for Generation)")
+    st.caption("The following context was retrieved from the uploaded PDF and used to generate the schedule.")
+    st.text(st.session_state.retrieved_context[:1500])
 
     with st.expander("Raw Model Output"):
         st.text(st.session_state.schedule_text)
